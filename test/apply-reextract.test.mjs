@@ -44,3 +44,9 @@ test("CLI 与该 HTTP 应用入口复用同一入口，不各自解析", () => {
     "CLI apply 先解析宿主再打补丁",
   );
 });
+
+test("purge-community apply 转发的原版 CLI 也先解析宿主", () => {
+  const bin = read("../bin/dsh-purge.js");
+  const body = bin.slice(bin.indexOf('if (mode === "--apply")'), bin.indexOf("applyPatchesAllHosts("));
+  assert.match(body, /core\.prepareApplyHost\(state\.ai_base\)/);
+});

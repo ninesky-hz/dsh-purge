@@ -2,9 +2,9 @@
 
 修复：面板「应用」绕过了「插件升级后干净重解包」的判定，升级后仍在旧解包树上增量打补丁。
 
-- `purge_apply` 工具与重启前预检现在和 CLI、HTTP 应用入口一样先调用 `prepareApplyHost`：插件版本与解包戳不一致（含旧版根本没记版本）时先重解官方 `app.asar`，再打补丁，并写入带版本的新戳。
+- 新增 `core.prepareApplyHost(aiBase)`：插件版本与解包戳不一致（含旧版根本没记版本）时先重解官方 `app.asar`，再打补丁，并写入带版本的新戳。面板工具 `purge_apply`、`purge apply`、`purge-community apply` 转发的原版 CLI 以及重启前预检全部改走它；面板 HTTP 入口本来就是这条路径。
 - 由此清掉旧版残留、新版已不再提供的改写（例如 1.1.72 的 tool-result pruning disable 与 `dsh-purge-hide-console` 注入）。它们只存在于解包目录，不涉及归档本身与用户设置。
-- 新增 `test/apply-reextract.test.mjs`，钉住工具、CLI 与重启预检三个入口的解析顺序。
+- 新增 `test/apply-reextract.test.mjs`，钉住四个入口的解析顺序。
 
 不修改提示词、现有功能、用户设置或代理，不自动应用补丁或重启 DSH。
 

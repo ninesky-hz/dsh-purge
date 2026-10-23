@@ -59,6 +59,19 @@ async function main() {
       console.log("  fix: 把 DSH_BASE 指到含 dsh-agent-instructions/lib 的 @deepseek-ai 目录");
       process.exit(1);
     }
+    // 与工具、HTTP 入口同一判定：插件版本变了先干净重解包，不在旧解包树上增量打补丁。
+    let located;
+    try {
+      located = await core.prepareApplyHost(state.ai_base);
+    } catch (e) {
+      console.log("[ERROR] " + String(e && e.message ? e.message : e));
+      process.exit(1);
+    }
+    if (!located.aiBase) {
+      console.log("[ERROR] " + core.missingAiBaseMessage());
+      process.exit(1);
+    }
+    state.ai_base = located.aiBase;
     const inject = rules.resolveInjectText(state.dsh_home);
     if (!inject.text) {
       console.log("[ERROR] 提示词和规则集都是空的，必须先添加提示词");
