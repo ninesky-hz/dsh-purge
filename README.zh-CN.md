@@ -9,9 +9,9 @@
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前版本 **1.6.47** · 适配 **DSH Desktop 0.2.1-rc.2**（rc.1 同样通过） · [English](docs/README.en.md)
+当前版本 **1.6.48** · 适配 **DSH Desktop 0.2.1-rc.2**（rc.1 同样通过） · [English](docs/README.en.md)
 
-1.6.47 修复 electron-vite 桌面入口定位遗漏，统一自检、诊断和补丁应用的目标文件；真正缺失或损坏仍会报错。包含 1.6.46 的链接清理修复：1.6.45 及以前的 Windows 用户请使用新版独立安装器升级。[升级与恢复说明](docs/maintenance-issue-67.md)。[发行说明](docs/releases/1.6.47.md) · [市场安装与迁移指南](docs/MARKET-MIGRATION.md)。
+1.6.48 修复面板「应用」绕过「插件升级后干净重解包」判定的问题：工具与重启前预检现在和 CLI 一样先重解，再打补丁，旧版残留的已删除改写不会再被带进宿主。[发行说明](docs/releases/1.6.48.md) · [市场安装与迁移指南](docs/MARKET-MIGRATION.md)。
 
 </div>
 
