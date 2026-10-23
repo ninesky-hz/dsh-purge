@@ -109,13 +109,23 @@ test("版本不一致且 forApply/upgrade 才要求重解包，版本一致不�
   }
 });
 
-test("旧 stamp 没记版本（空串）不因版本强制重解包", () => {
+test("旧 stamp 没记版本时按「不可验证」重解一次，普通路径与未知当前版本不重解", () => {
   const current = pluginVersion();
   for (const recorded of [{ size: 100, mtimeMs: 200, version: "" }, { size: 100, mtimeMs: 200 }]) {
-    assert.equal(decidedExtract({ recorded, forApply: true }), false);
-    assert.equal(decidedExtract({ recorded, upgrade: true }), false);
+    // 旧版本写下的 stamp 没有 version：这棵树不是本版本解出来的，apply/upgrade 先重解。
+    assert.equal(decidedExtract({ recorded, forApply: true }), true);
+    assert.equal(decidedExtract({ recorded, upgrade: true }), true);
+    // 普通定位/启动路径不看版本。
+    assert.equal(decidedExtract({ recorded }), false);
   }
-  // 插件版本读不到（空串）同样视为未知，不据此重解。
+  // 插件版本读不到（空串）时无法判断，保持不动。
+  assert.equal(shouldReextractForPluginUpgrade({
+    recordedVersion: "",
+    pluginVersion: "",
+    forApply: true,
+    upgrade: false,
+    archivePresent: true,
+  }), false);
   assert.equal(shouldReextractForPluginUpgrade({
     recordedVersion: "1.1.72",
     pluginVersion: "",
@@ -123,12 +133,13 @@ test("旧 stamp 没记版本（空串）不因版本强制重解包", () => {
     upgrade: false,
     archivePresent: true,
   }), false);
+  // 归档已经不在（已完成换包）时无从重解。
   assert.equal(shouldReextractForPluginUpgrade({
-    recordedVersion: current,
+    recordedVersion: "",
     pluginVersion: current,
-    forApply: false,
+    forApply: true,
     upgrade: false,
-    archivePresent: true,
+    archivePresent: false,
   }), false);
 });
 
