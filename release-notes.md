@@ -1,3 +1,17 @@
+# 1.6.50
+
+## 更新源可配置：把「检查更新」指向 Gitee 镜像
+
+- **症状**：面板「维护：更新与本机备份」报「无法读取社区发行列表：GitHub API 额度耗尽（HTTP 403）」，`releases.atom` 降级也失败——因为发行列表写死在上游 GitHub 仓库，匿名额度只有 60 次/小时。
+- **改法**：新增 `lib/update-source.js`，把「发布源」抽成 provider（GitHub / Gitee）。`PURGE_UPDATE_REPO=owner/repo`（或仓库 URL）选择仓库，`PURGE_UPDATE_PROVIDER=gitee` 可显式指定平台（URL 里带 `gitee.com` 时自动识别）。发行列表、单标签元数据、标签兜底、发行页/资产/校验清单 URL、安装包身份校验、归档 URL 全部跟随该源。
+- **传输层**：`UPDATE_HOSTS` 增加 `gitee.com` / `file.gitee.com` / `objects.gitee.com`（Gitee 资产会 302 到文件域，跳转落点仍在白名单内）；`GITEE_TOKEN` 以 `Authorization: token` 发送，`GITHUB_TOKEN` 仍是 `Bearer`，互不串用，跨域不转发。
+- **Gitee 没有 `releases.atom`**：降级路径改用其 `/tags` 接口（匿名可读、不占 API 配额），仍逐条核对 `SHA256SUMS.txt` 才判定可安装。
+- **配置错就报错**：`PURGE_UPDATE_PROVIDER` 写错或 `PURGE_UPDATE_REPO` 不是 `owner/repo` 时直接抛错，不静默退回默认源。
+- **兼容**：不设任何变量时发布源仍是 `kingcharleslzy-ai/dsh-purge`（GitHub），行为与 1.6.49 完全一致。
+- **测试**：新增 `test/update-source.test.mjs` 7 条（默认源、只换仓库、URL 推断 Gitee、Gitee 全套 URL、配置错误抛错、传输层认证与白名单、scp 形式）。
+
+[完整说明](docs/releases/1.6.50.md)
+
 # 1.6.49
 
 ## 启动自愈：官方桌面把 pnpm 子进程 PATH 收窄时自动补一个 git 转发器

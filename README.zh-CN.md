@@ -9,9 +9,9 @@
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前版本 **1.6.49** · 适配 **DSH Desktop 0.2.1-rc.2**（rc.1 同样通过） · [English](docs/README.en.md)
+当前版本 **1.6.50** · 适配 **DSH Desktop 0.2.1-rc.2**（rc.1 同样通过） · [English](docs/README.en.md)
 
-1.6.49 增加启动自愈：官方桌面把 pnpm 子进程 PATH 收窄成只剩 `runtime/bin`（里面没有 git），「添加插件」装 git 依赖会报「'git' 不是内部或外部命令」；插件启动时自动写一个转发用的 `git.cmd`，厂商升级重建 runtime 后下次启动也会自动补回。[发行说明](docs/releases/1.6.49.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md) · [市场安装与迁移指南](docs/MARKET-MIGRATION.md)。
+1.6.50 让更新源可配置：`PURGE_UPDATE_REPO` 指向 Gitee 镜像（如 `n-sky/dsh-purge`）后，「检查更新」的发行列表、单标签元数据、标签兜底与下载地址全部走 Gitee API v5，不再依赖 GitHub 匿名额度（60 次/小时打满就是面板那条 403）；不设该变量时行为与之前完全一致。[发行说明](docs/releases/1.6.50.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md) · [市场安装与迁移指南](docs/MARKET-MIGRATION.md)。
 
 </div>
 
