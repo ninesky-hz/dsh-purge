@@ -1,3 +1,16 @@
+# 1.6.49
+
+## 启动自愈：官方桌面把 pnpm 子进程 PATH 收窄时自动补一个 git 转发器
+
+- **症状**：DSH Desktop `0.2.1-rc.2` 的「添加插件」安装 git 依赖时报 `[ERR_PNPM_GIT_RESOLVE_FAILED] … git ls-remote failed: 'git' 不是内部或外部命令，也不是可运行的程序或批处理文件。`；同一 URL 在普通终端能装。
+- **根因**：桌面主进程用 `PATH: ${bin}${delimiter}${environment.PATH ?? ""}` 拼子进程环境，Windows 上 `process.env` 的键常为 `Path`，取不到就把 PATH 截成只剩 `resources/runtime/bin`（其中只有 node，没有 git）。
+- **修法**：插件启动时 `ensureRuntimeGitShim()` 在 `<resources>/runtime/bin/git.cmd` 写 50 字节转发器指向真实 `git.exe`；幂等、带 `dsh-purge-git-shim` 标记、外来同名文件不覆盖（报 `file_conflict`）、纯转发器就地接管（`adopted`）、探不到 git 时 fail-closed、只认 `git.exe` 防自递归、tmp+rename 落盘。
+- **可观测**：`purge_status` 新增 `git shim / runtime` 一行，面板直接显示 ✓/✗/·。
+- **实测**：PATH 只剩 `runtime/bin` 时复现界面报错；放上转发器后同环境 `Done in 9.6s`，日志可见 `git config --get core.sshCommand` 与 `git ls-remote -- <url> HEAD`。
+- **生命周期**：厂商升级重建 runtime 目录后，下次启动自动补回；回滚只需删除该 `git.cmd`。
+- **测试**：新增 `test/runtime-compat.test.mjs` 6 条（CRLF/幂等、外来文件不覆盖、纯转发器接管、无 git 不落文件、非 Windows 跳过、解析器不选自己的 shim）。
+
+[完整说明](docs/releases/1.6.49.md)
 # 1.6.48
 
 修复：面板「应用」绕过了「插件升级后干净重解包」的判定，升级后仍在旧解包树上增量打补丁。

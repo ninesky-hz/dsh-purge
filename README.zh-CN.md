@@ -9,9 +9,9 @@
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前版本 **1.6.48** · 适配 **DSH Desktop 0.2.1-rc.2**（rc.1 同样通过） · [English](docs/README.en.md)
+当前版本 **1.6.49** · 适配 **DSH Desktop 0.2.1-rc.2**（rc.1 同样通过） · [English](docs/README.en.md)
 
-1.6.48 修复面板「应用」绕过「插件升级后干净重解包」判定的问题：工具与重启前预检现在和 CLI 一样先重解，再打补丁，旧版残留的已删除改写不会再被带进宿主。[发行说明](docs/releases/1.6.48.md) · [市场安装与迁移指南](docs/MARKET-MIGRATION.md)。
+1.6.49 增加启动自愈：官方桌面把 pnpm 子进程 PATH 收窄成只剩 `runtime/bin`（里面没有 git），「添加插件」装 git 依赖会报「'git' 不是内部或外部命令」；插件启动时自动写一个转发用的 `git.cmd`，厂商升级重建 runtime 后下次启动也会自动补回。[发行说明](docs/releases/1.6.49.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md) · [市场安装与迁移指南](docs/MARKET-MIGRATION.md)。
 
 </div>
 
