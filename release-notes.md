@@ -1,3 +1,15 @@
+# 1.6.51
+
+## 修「环境还没配好」提示条压在侧栏标题上
+
+- **症状**：红队模式未配工具时，首屏「环境还没配好」对话框出现在左上角，压住侧栏标题，背后也没有遮罩。
+- **根因**：组件用的是单 `p` 的 `.dshp-auth-mask` / `.dshp-auth-modal` / `.dshp-auth-ops` / `.dshp-auth-warn`，而随包样式（`packages/purge-panel/src/styles/base.css`）只定义了双 `p` 的 `.dshpp-*`。这四个类名一个都没命中，遮罩退化成普通 `div`，随文档流落在顶部。
+- **改法**：在 `base.css` 补齐这组样式——固定全屏遮罩（`position:fixed; inset:0`）、居中卡片（`width:min(480px,100%)`、`max-height:calc(100dvh - 32px)`、内部可滚动）、`env(safe-area-inset-*)` 内边距、DSH 语义令牌配色（`--dsw-alias-*`）、32px 按钮点击高度与 `:focus-visible` 描边、480px 断点收紧间距。
+- **顺带修构建**：`packages/purge-panel/scripts/build.mjs` 把 esbuild 内联的 CSS 文本归一化为 LF。此前在 Windows（CRLF 检出）上重建出的 `client.js` 与已提交版本只差换行，`npm run check:client` 会误报 stale。
+- **验证**：`npm run check:client` 通过；重建包体内出现 `.dshp-auth-mask{position:fixed`；`npm test` 与历史基线同集（22 条既有失败）；`npm run check:docs` 通过。
+
+[完整说明](docs/releases/1.6.51.md)
+
 # 1.6.50
 
 ## 更新源可配置：把「检查更新」指向 Gitee 镜像

@@ -1140,3 +1140,129 @@ body:not([data-ds-dark-theme]) .dshpp-auth-ops button.primary {
     color-mix(in srgb, var(--dsw-alias-brand-primary, #6dbf8c) 28%, transparent);
 }
 /* 玻璃跟随宿主颜色。字重和底的不透明度分开：壳透，字坐在更实的一层上。 */
+
+/* ---- overlay: env gate / auth modal (dshp- prefix) ----
+   组件使用单 p 的 .dshp-auth-* 类名，base.css 里只定义了双 p 的 .dshpp-*，
+   导致「环境还没配好」对话框没有定位与背景，作为普通 div 落在文档流顶部、
+   压住侧栏标题。这里补齐完整遮罩 + 居中卡片样式。 */
+.dshp-auth-mask {
+  position: fixed;
+  inset: 0;
+  z-index: 10100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  padding: calc(16px + env(safe-area-inset-top, 0px)) 16px
+    calc(16px + env(safe-area-inset-bottom, 0px));
+  background: color-mix(in srgb, #000 52%, transparent);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  overflow: auto;
+  overscroll-behavior: contain;
+  pointer-events: auto;
+}
+.dshp-auth-modal {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  box-sizing: border-box;
+  width: min(480px, 100%);
+  max-height: calc(100dvh - 32px);
+  overflow: auto;
+  padding: 18px 18px 16px;
+  border: 1px solid
+    color-mix(in srgb, var(--dsw-alias-border-l1, #3a3a3a) 80%, transparent);
+  border-radius: 14px;
+  background: var(--dsw-alias-bg-layer-1, #1b1b1b);
+  color: var(--dsw-alias-label-primary, #eee);
+  box-shadow: 0 24px 64px color-mix(in srgb, #000 38%, transparent);
+}
+.dshp-auth-modal h2 {
+  margin: 0;
+  font-size: 16px;
+  line-height: 1.4;
+  font-weight: 600;
+}
+.dshp-auth-warn {
+  padding: 9px 11px;
+  border: 1px solid
+    color-mix(in srgb, var(--dsw-alias-warnish-1, #a8791f) 45%, transparent);
+  border-radius: 9px;
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-warnish-1, #a8791f) 16%,
+    transparent
+  );
+  color: color-mix(in srgb, var(--dsw-alias-label-primary, #eee) 88%, #f0c987);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+.dshp-auth-ops {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 2px;
+}
+.dshp-auth-ops button {
+  appearance: none;
+  min-height: 32px;
+  padding: 7px 14px;
+  border: 1px solid
+    color-mix(in srgb, var(--dsw-alias-border-l1, #444) 85%, transparent);
+  border-radius: 9px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  transition:
+    background 0.15s ease,
+    border-color 0.15s ease;
+}
+.dshp-auth-ops button:hover {
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-label-primary, #fff) 8%,
+    transparent
+  );
+}
+.dshp-auth-ops button:focus-visible {
+  outline: 2px solid var(--dsw-alias-brand-primary, #6dbf8c);
+  outline-offset: 2px;
+}
+.dshp-auth-ops button.primary {
+  border-color: color-mix(
+    in srgb,
+    var(--dsw-alias-brand-primary, #6dbf8c) 55%,
+    transparent
+  );
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-brand-primary, #6dbf8c) 22%,
+    transparent
+  );
+  font-weight: 600;
+}
+.dshp-auth-ops button.primary:hover {
+  background: color-mix(
+    in srgb,
+    var(--dsw-alias-brand-primary, #6dbf8c) 30%,
+    transparent
+  );
+}
+.dshp-auth-ops button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+@media (max-width: 480px) {
+  .dshp-auth-mask {
+    padding: 12px;
+  }
+  .dshp-auth-modal {
+    padding: 14px;
+    max-height: calc(100dvh - 24px);
+  }
+}

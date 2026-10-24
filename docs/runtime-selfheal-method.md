@@ -17,7 +17,7 @@
 
 对照：改宿主源码属于"宿主补丁"（`dsh-purge` 的 80 条），它需要「应用 + 重启」，且升级后要重做 —— 两条路别混。
 
-上面三条针对**磁盘目标**。还有一类同样常见、也更容易写错的自愈：目标是**内存里的状态**（订阅、注册行、挂载中的 fiber），进程一退就归零 —— 第 10 节单独讲，两者的幂等与 fail-closed 要求相同，但"可丢失"的原因不同。
+上面三条针对**磁盘目标**。还有一类同样常见、也更容易写错的自愈：目标是**内存里的状态**（订阅、注册行、挂载中的 fiber），进程一退就归零 —— 第 9 节单独讲，两者的幂等与 fail-closed 要求相同，但"可丢失"的原因不同。
 
 ---
 
@@ -137,7 +137,7 @@ func ensureShim(resources string) error {
 拷贝到新仓库时按顺序做，每步都有可验证产出：
 
 1. **新建 `<pkg>/runtime-compat.js`**（名字随语言），导出 `resolve*` / `ensure*` / `status*` 三个函数。
-2. **接到启动钩子**：插件初始化 / 服务 `OnStart` / 应用 `main()` 第一屏之后。**不要**放在"安装步骤"里 —— 安装只发生一次，自愈要每次启动。（本仓库的实际接线、fail-open 与日志策略见 §9.1。）
+2. **接到启动钩子**：插件初始化 / 服务 `OnStart` / 应用 `main()` 第一屏之后。**不要**放在"安装步骤"里 —— 安装只发生一次，自愈要每次启动。
 3. **加状态行**：面板/`status` 输出一行 `shim: ok|missing|conflict|not_win32`，让人不读日志就能判断。
 4. **写测试（5 条即可）**：
    - 正常写入 + 内容含标记 + CRLF + 二次调用 `already`；
@@ -182,116 +182,11 @@ func ensureShim(resources string) error {
 
 ---
 
-## 9. 实装接线：dsh-purge 1.6.49（可直接对照源码）
-
-前面 1–8 节是通用套路；这一节是它在仓库里的**真实接线**，照抄时对着源码改。文件：`lib/runtime-compat.js` + `lib/index.js`。
-
-### 9.1 调用点与三条接线规矩
-
-唯一调用点在 `lib/index.js` 的 `applyHostHooks()`（插件加载期，紧随 identity / region / fresh-full-access / rewind / cwd / mnemon 等运行时钩子之后）：
-
-```js
-try {
-  const gitShim = runtimeCompat.ensureRuntimeGitShim();
-  if (gitShim.wrote || gitShim.reason) log(cfg, "runtime git shim:", JSON.stringify(gitShim));
-} catch (e) {
-  console.warn("[dsh-purge] runtime git shim error:", String(e?.message || e));
-}
-```
-
-| 规矩 | 为什么 |
-| --- | --- |
-| 挂在**插件加载期**，不是「应用」按钮 | 「应用」只写宿主补丁、要重启；自愈必须每次启动都跑 |
-| **fail-open**：整段 `try/catch`，异常只 `console.warn` | 自愈是辅助，坏了不能连累插件加载（否则一个 shim 问题会连技能/工具一起拖死） |
-| **只在有动作时记日志**（`wrote` / `reason`） | `already` 静默，否则每次启动都刷一行噪声 |
-
-### 9.2 目标与产物
-
-`<resources>/runtime/bin/git.cmd` —— 实测 122 字节，CRLF：
-
-```bat
-rem dsh-purge-git-shim — auto-installed by dsh-purge; safe to delete
-@echo off
-"C:\Program Files\Git\cmd\git.exe" %*
-```
-
-同目录官方只放 `node` / `node.cmd`（这就是 PATH 被收窄后 pnpm 找不到 git 的直接证据）。
-
-### 9.3 状态机（7 态，比第 3 节的 4 态更细）
-
-| `state` | 触发条件 | 自愈动作 |
-| --- | --- | --- |
-| `ok` | 内容含 `dsh-purge-git-shim` 标记 | 字节完全一致 → `already`，不写盘 |
-| `legacy` | 是"纯转发器"且指向**同一个** `git.exe` | 就地补标记（`adopted`），不算冲突 |
-| `conflict` | 同名文件存在，非我们的、也不是等价转发器 | 保留原文件，`ok:false / reason:file_conflict` |
-| `missing` | 无 `git.cmd`，且解析到系统 git | 写入 |
-| `missing`（无 git） | 无 `git.cmd` 且找不到 `git.exe` | fail-closed，**不写**半成品 |
-| `no_runtime` | `<resources>/runtime/bin` 不存在（Web / headless） | `skipped` |
-| `not_win32` | 非 Windows | `skipped` |
-
-两个 `n/a` 是 `skipped` 的子类，状态行要能一眼区分"没做"和"做失败"。
-
-### 9.4 两个容易写错的细节
-
-**纯转发器识别**（`pureForwarderTarget`）—— 让手工按文档补过转发器的机器不必先删文件：
-
-```js
-/^@echo off\s*\r?\n\s*"?([^"\r\n]+\.exe)"?\s+%\*\s*$/i
-```
-
-匹配后还要比对"解析出的 exe 与系统 git 是否同一路径"（`path.normalize` + 小写比较）；只满足格式但指向别处的，按外来文件保护，不接管。
-
-**真实 git 解析顺序**（`resolveSystemGit`）：显式 `gitPath` → `ProgramW6432` / `ProgramFiles` / `ProgramFiles(x86)` / `LOCALAPPDATA\Programs\Git\cmd\git.exe` → 固定 `C:\Program Files\Git\cmd\git.exe`、`…(x86)…` → `PATH` 逐目录。
-
-- 只认 `.exe`（`.cmd` 可能就是自己 → 自递归）；
-- **不调 `where.exe`**：子进程闪窗 + 阻塞，且结果可能命中自己的 shim。
-
-**写盘**：`.dshpurge-<pid>.tmp` 写入 → 目标已存在则先 `unlink` → `rename`。Windows 上 `rename` 覆盖已存在文件会失败，所以顺序不能省；任何异常清理 tmp 并返回 `write_failed`，交给下次启动。
-
-### 9.5 观测
-
-`renderStatus()` 多一行「git shim / runtime」，值来自 `runtimeGitShimSummary()`：
-
-```
-ok → C:\Program Files\Git\cmd\git.exe
-missing (git: C:\Program Files\Git\cmd\git.exe)     ← 有 git 但没转发器
-missing (no system git)                            ← 两者都缺，fail-closed
-conflict (foreign git.cmd kept)
-legacy forwarder → … (will be adopted)
-n/a (no runtime/bin)
-```
-
-该行独立 `try/catch`：状态行失败不影响其它行输出。
-
-### 9.6 升级后怎么恢复
-
-官方更新重建 `resources/runtime/**` → `git.cmd` 消失 → 下次插件加载状态回到 `missing` 并重写。**不需要点「应用」，也不需要用户重启**（和 §1 里"宿主补丁要应用 + 重启"是两条路，别混）。回滚 = 删掉那个 `git.cmd`，无副作用。
-
-### 9.7 真机验收（复现 → 自愈 → 端到端）
-
-```powershell
-# 1) 把 PATH 收窄成只剩 runtime/bin，证明 git 真的断掉
-$env:PATH = "$env:ProgramFiles\DeepSeek Harness\resources\runtime\bin"
-git --version            # 'git' 不是内部或外部命令 → 复现用户报错
-
-# 2) 触发自愈（等价于重启 DSH 时启动钩子跑一次）
-node -e "import('file:///D:/Ai-Project/dsh-purge/lib/runtime-compat.js').then(m=>console.log(m.ensureRuntimeGitShim()))"
-
-# 3) 同一收窄环境再验一次
-git --version            # git version 2.x
-```
-
-判据是第 3 步，不是第 2 步返回的 `{ ok: true, wrote: true }`。
-
-**单测**：`node --test test/runtime-compat.test.mjs`（5 条）：写入 + 幂等、legacy 接管、外来文件字节不变、无系统 git 时不落盘、非桌面/非 Windows 磁盘零改动。
-
----
-
-## 10. 第二类目标：运行时状态自愈
+## 9. 第二类目标：运行时状态自愈
 
 第 1–9 节讲的是**磁盘**：把一个文件投放到厂商会重建的目录里。还有一类更常见、也更容易写错的自愈 —— **目标在内存里**，进程一退出就没了。
 
-| | 磁盘目标（第 1–9 节） | 运行时状态目标（本节） |
+| | 磁盘目标（第 1–8 节） | 运行时状态目标（本节） |
 | --- | --- | --- |
 | 目标 | `runtime/bin/git.cmd` | loader entry 的 `plugins`、服务注册、挂载中的订阅 |
 | 为什么"可丢失" | 厂商升级会重建该目录 | 进程退出，内存态归零 |
@@ -299,13 +194,13 @@ git --version            # git version 2.x
 | 主要失败模式 | 写坏别人的文件 | **跑太早**，依赖还没就绪 |
 | 幂等判据 | 文件含标记 | 当前状态已等于目标状态 |
 
-### 10.1 "跑太早"是这类自愈的默认结局
+### 9.1 "跑太早"是这类自愈的默认结局
 
 `dsh-main-agent` 0.13.0 带过一个典型 bug：重启后按 `supervisedPresets` 把监督层重新叠到 preset 上，实现是 mount 时一次 + `setTimeout(0)` + `setTimeout(2000)` 两次重试。看起来够宽容，实际每次重启都失效 —— `config` 由 settings 文档 hydrate，这个动作可能晚于 2000 ms；三次 pass 跑的时候 `supervisedPresets` 还是默认空数组，`wanted` 为空，什么也不做，之后**没有任何东西再试**。
 
 表象是「设置明明勾着，重启后却没生效」，而手动再保存一次就正常 —— 因为它走的是另一条路径（写入后立即应用），那条路径本来就晚于 hydrate。
 
-### 10.2 三路触发，而不是一路
+### 9.2 三路触发，而不是一路
 
 修法是把"依赖就绪"本身变成信号，定时器只做兜底：
 
@@ -336,14 +231,14 @@ ctx.on('settings/document-updated', () => { void reapply() })
 ctx.effect?.(() => () => { clearTimeout(t1); clearTimeout(t2) })
 ```
 
-### 10.3 幂等的两个坑
+### 9.3 幂等的两个坑
 
 1. **别拿"序列化后与原文比较"当幂等判据。** 配置走 YAML 往返时，每次 `stringify` 都会重排块标量缩进，第二次输出永远不等于磁盘字节，于是"已应用"被误判成"需要再写"。判据要用**语义状态** —— 这里数三个工具行的 `name` 是否已经是自己的实现。
 2. **别用"我写过了"标记。** 进程退出后它就没了；标在磁盘上，又会和"用户后来手工改回去"冲突。唯一可靠的判据是**当前状态**。
 
-### 10.4 验收
+### 9.4 验收
 
-磁盘目标的验收是"同一受限环境下端到端命令跑通"（第 8、9 节）。运行时状态目标只有一条：**重启一次，然后读状态接口**，确认目标状态真的重建了 —— 不是看设置文档里还写着。
+磁盘目标的验收是"同一受限环境下端到端命令跑通"（第 8 节）。运行时状态目标只有一条：**重启一次，然后读状态接口**，确认目标状态真的重建了 —— 不是看设置文档里还写着。
 
 `dsh-main-agent` 的对应检查：
 
@@ -355,7 +250,7 @@ curl -s http://127.0.0.1:<port>/supervisor/presets   | jq '.presets[] | select(.
 
 只看 `supervised: true` 不够 —— 那是**设置**，不是**状态**。0.13.0 就是设置完好、状态为空。
 
-### 10.5 反模式
+### 9.5 反模式
 
 - ❌ 只靠一个 `setTimeout(3000)` 就当"等依赖就绪"：换台机器、换磁盘、冷启动就失效。
 - ❌ 把用户偏好写进代码默认值：偏好读不到时就静默退化成"用户没设过"，而不是"还没就绪"。

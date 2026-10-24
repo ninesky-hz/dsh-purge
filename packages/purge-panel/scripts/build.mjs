@@ -28,6 +28,10 @@ const result = await build({
     __COMMUNITY__: JSON.stringify(community),
   },
 });
+// 源码在 Windows 检出时是 CRLF，esbuild 把 CSS 当文本内联后会把 \r\n 带进包体，
+// 导致同一份源码在不同换行设置下产出不同 bundle（--check 会误报 stale）。
+// 统一归一化成 LF，让构建结果与检出方式无关。
+const bundleText = result.outputFiles[0].text.replace(/\r\n/g, "\n");
 const output =
   "// Generated from src/ by npm run build. Do not edit.\n" +
   "// Derived UI: YuJunZhiXue/dsh-purge (MIT), see LICENSE.\n" +
@@ -35,7 +39,7 @@ const output =
   JSON.stringify(pkg.name) +
   ",factory:(require)=>{\n" +
   "var module={exports:{}};var exports=module.exports;\n" +
-  result.outputFiles[0].text +
+  bundleText +
   "\nreturn module.exports;\n}});\n";
 const dest = path.join(community ? projectRoot : root, "client.js");
 if (process.argv.includes("--check")) {
