@@ -861,23 +861,28 @@ export function PurgifySection({ page = "status", onStatus } = {}) {
             },
             patchBusy ? t("btn.apply.busy") : t("btn.apply"),
           ),
+          // 危险操作单独成组：与「应用」之间留一道分隔，避免两个红色按钮并排抢注意力
           h(
-            Btn,
-            {
-              kind: "danger",
-              disabled: patchBusy || uninstallBusy,
-              onClick: () => doAction("revert", "action.revert"),
-            },
-            t("btn.revert"),
-          ),
-          h(
-            Btn,
-            {
-              kind: "solid-danger",
-              disabled: patchBusy || uninstallBusy,
-              onClick: () => setAskUninstall(true),
-            },
-            uninstallBusy ? t("btn.uninstall.busy") : t("btn.uninstall"),
+            "div",
+            { className: "dshpp-hero-danger" },
+            h(
+              Btn,
+              {
+                kind: "danger",
+                disabled: patchBusy || uninstallBusy,
+                onClick: () => doAction("revert", "action.revert"),
+              },
+              t("btn.revert"),
+            ),
+            h(
+              Btn,
+              {
+                kind: "solid-danger",
+                disabled: patchBusy || uninstallBusy,
+                onClick: () => setAskUninstall(true),
+              },
+              uninstallBusy ? t("btn.uninstall.busy") : t("btn.uninstall"),
+            ),
           ),
           h(
             Btn,

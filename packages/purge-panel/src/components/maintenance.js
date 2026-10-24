@@ -448,7 +448,7 @@ export function CommunityMaintenance() {
   return h(
     "section",
     { className: "dshpp-panel", "aria-label": "社区版维护" },
-    h("h3", null, "维护：更新与本机备份"),
+    h("div", { className: "dshpp-section-head" }, h("h3", null, "维护：更新与本机备份")),
     h(UpdatePreferences, {
       value: value?.update_preferences,
       status: value?.update_status,
@@ -517,11 +517,19 @@ export function CommunityMaintenance() {
           ),
         )
       : null,
-    h("h3", { style: { marginTop: 20 } }, "本机备份"),
     h(
-      Btn,
-      { disabled: busy || listState === "loading", onClick: load },
-      "刷新备份列表",
+      "div",
+      { className: "dshpp-section-head" },
+      h("h3", null, "本机备份"),
+      h(
+        "div",
+        { className: "dshpp-section-actions" },
+        h(
+          Btn,
+          { tiny: true, disabled: busy || listState === "loading", onClick: load },
+          listState === "loading" ? "读取中…" : "刷新",
+        ),
+      ),
     ),
     listState === "loading"
       ? h("p", { role: "status" }, "正在读取备份…")
@@ -530,7 +538,16 @@ export function CommunityMaintenance() {
       ? h("p", { role: "alert" }, `读取备份失败：${listError}`)
       : null,
     listState === "ready" && !value.backups.length
-      ? h("p", { role: "status" }, "暂无备份")
+      ? h(
+          "div",
+          { className: "dshpp-empty", role: "status" },
+          h("b", null, "还没有本机备份"),
+          h(
+            "span",
+            null,
+            "点「立即备份」把当前插件与配置存一份快照；回滚时按快照恢复，不会覆盖提示词与规则。",
+          ),
+        )
       : null,
     h(
       "div",

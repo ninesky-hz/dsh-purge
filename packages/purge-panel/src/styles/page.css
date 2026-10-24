@@ -651,3 +651,110 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
+
+/* ---- 状态页排版整理：提示条、分组标题、危险操作分组、空状态、页脚 ---- */
+.dshpp-page .dshpp-warn {
+  margin: 12px 0 0;
+  padding: 10px 12px 10px 14px;
+  border: 1px solid color-mix(in srgb, var(--dshpp-warn) 45%, var(--dshpp-line));
+  border-left: 3px solid var(--dshpp-warn);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--dshpp-warn) 10%, transparent);
+  color: var(--dshpp-fg);
+  font-size: 0.86em;
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.dshpp-page .dshpp-section-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 26px 0 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--dshpp-line);
+}
+.dshpp-page .dshpp-section-head h3 {
+  margin: 0;
+  font-size: 1em;
+  font-weight: 600;
+  letter-spacing: 0.01em;
+}
+.dshpp-page .dshpp-section-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  flex: none;
+}
+
+.dshpp-page .dshpp-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  margin: 12px 0 0;
+  padding: 20px 16px;
+  border: 1px dashed var(--dshpp-line);
+  border-radius: 12px;
+  background: var(--dshpp-bg-2);
+  color: var(--dshpp-mute);
+  font-size: 0.86em;
+  line-height: 1.6;
+  text-align: center;
+}
+.dshpp-page .dshpp-empty b {
+  color: var(--dshpp-fg);
+  font-size: 1.02em;
+  font-weight: 600;
+}
+.dshpp-page .dshpp-empty span {
+  max-width: 46em;
+}
+
+/* hero：状态文字与「桌面端」不再抢同一行；危险操作靠右并加分隔线 */
+.dshpp-page .dshpp-hero {
+  gap: 12px;
+}
+.dshpp-page .dshpp-hero-state {
+  flex-wrap: wrap;
+  align-items: baseline;
+  column-gap: 10px;
+  row-gap: 4px;
+}
+.dshpp-page .dshpp-hero-state .dshpp-dot {
+  align-self: center;
+}
+.dshpp-page .dshpp-hero-sub {
+  margin-left: 0;
+  padding: 1px 8px;
+  border: 1px solid var(--dshpp-line);
+  border-radius: 999px;
+  background: var(--dshpp-bg-2);
+  font-size: 0.78em;
+  line-height: 1.6;
+  white-space: nowrap;
+}
+.dshpp-page .dshpp-hero-danger {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding-left: 12px;
+  border-left: 1px solid var(--dshpp-line);
+}
+
+/* 「本机 vX 当前」徽章：允许换行，基线对齐 */
+.dshpp-page .dshpp-now {
+  flex-wrap: wrap;
+  row-gap: 4px;
+}
+
+.dshpp-page .dshpp-page-foot {
+  margin-top: 28px;
+  padding-top: 12px;
+  border-top: 1px solid var(--dshpp-line);
+  color: var(--dshpp-mute);
+  font-size: 0.78em;
+  line-height: 1.6;
+}

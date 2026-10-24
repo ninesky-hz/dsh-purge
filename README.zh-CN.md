@@ -9,9 +9,9 @@
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前版本 **1.6.51** · 适配 **DSH Desktop 0.2.1-rc.2**（rc.1 同样通过） · [English](docs/README.en.md)
+当前版本 **1.6.52** · 适配 **DSH Desktop 0.2.1-rc.2**（rc.1 同样通过） · [English](docs/README.en.md)
 
-1.6.51 修掉首屏「环境还没配好」提示条压在侧栏标题上的问题：这条对话框用的是单 p 的 `.dshp-auth-*` 类名，而随包样式只定义了双 p 的 `.dshpp-*`，遮罩与卡片没有任何定位，于是作为普通 div 落在文档流顶部。补齐遮罩/卡片/按钮样式（固定全屏遮罩、居中、安全区内边距、可滚动、深浅色令牌），并把构建产物换行归一化，避免 CRLF 检出时 `check:client` 误报 stale。[发行说明](docs/releases/1.6.51.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md) · [市场安装与迁移指南](docs/MARKET-MIGRATION.md)。
+1.6.52 整理面板「状态」页的排版：维护区与备份区统一成带分隔线的分组标题，危险操作（还原/卸载）单独成组并靠右，「63/65 条补丁已生效」与右侧「桌面端」拆行、后者改成圆角徽章，备份空状态从一行居中文案改成虚线卡片，版本不一致提示条改成左侧强调边，页脚加分隔线与次要色。[发行说明](docs/releases/1.6.52.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md) · [市场安装与迁移指南](docs/MARKET-MIGRATION.md)。
 
 </div>
 
