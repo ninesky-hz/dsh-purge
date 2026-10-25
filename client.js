@@ -11138,6 +11138,9 @@ function PurgifySection({ page = "status", onStatus } = {}) {
     apiJson("/dsh-purge/status").then((d) => {
       if (d && d.ok) {
         setState(d);
+        setNotice(
+          (previous) => previous?.source === "status" ? { kind: "idle", text: "" } : previous
+        );
         if (d.channel) setChannel(d.channel);
         if (d.update && d.update.ok && !d.update.error)
           setUpdateInfo(d.update);
@@ -11156,6 +11159,7 @@ function PurgifySection({ page = "status", onStatus } = {}) {
         });
         setNotice({
           kind: "error",
+          source: "status",
           text: tr("err.status", { error: d && d.error || "bad response" })
         });
       }
@@ -11172,6 +11176,7 @@ function PurgifySection({ page = "status", onStatus } = {}) {
       });
       setNotice({
         kind: "error",
+        source: "status",
         text: tr("err.status", { error: e.message })
       });
     });
@@ -11767,7 +11772,7 @@ function PurgifySection({ page = "status", onStatus } = {}) {
         },
         t("apply.hint")
       ),
-      s && !s.ai_base ? h(
+      s?.ok === true && !s.ai_base ? h(
         "p",
         {
           className: "dshpp-hint",
@@ -12882,7 +12887,7 @@ function SettingsRoot(props = {}) {
       h(
         "span",
         { className: "dshpp-native-badge" },
-        (true ? "\u793E\u533A\u7248 " : "\u72EC\u7ACB\u754C\u9762 ") + "1.7.1"
+        (true ? "\u793E\u533A\u7248 " : "\u72EC\u7ACB\u754C\u9762 ") + "1.7.2"
       )
     ),
     h(CompatibilityNote, { status: backendStatus }),
@@ -13038,7 +13043,7 @@ function StatusStrip({ info }) {
       "span",
       { className: "dshpp-strip-item" },
       "\u63D2\u4EF6 ",
-      h("b", null, info?.plugin_version || "1.7.1")
+      h("b", null, info?.plugin_version || "1.7.2")
     )
   );
 }
@@ -13073,11 +13078,11 @@ function VersionNotice({ info }) {
     );
   }
   const backend = info?.plugin_version;
-  if (!backend || backend === "1.7.1") return null;
+  if (!backend || backend === "1.7.2") return null;
   return h(
     "p",
     { className: "dshpp-warn", role: "status" },
-    `\u5B98\u65B9\u7248\u672C ${backend}\uFF1B\u754C\u9762 ${"1.7.1"}\u3002\u4E24\u8005\u4E0D\u4E00\u81F4\u65F6\u8BBE\u7F6E\u53EF\u80FD\u4E0D\u751F\u6548\uFF0C\u8BF7\u66F4\u65B0\u5230\u540C\u4E00\u7248\u672C\u540E\u91CD\u542F DSH\u3002`
+    `\u5B98\u65B9\u7248\u672C ${backend}\uFF1B\u754C\u9762 ${"1.7.2"}\u3002\u4E24\u8005\u4E0D\u4E00\u81F4\u65F6\u8BBE\u7F6E\u53EF\u80FD\u4E0D\u751F\u6548\uFF0C\u8BF7\u66F4\u65B0\u5230\u540C\u4E00\u7248\u672C\u540E\u91CD\u542F DSH\u3002`
   );
 }
 function PurgePage() {
@@ -13134,7 +13139,7 @@ function PurgePage() {
           true ? h(
             "span",
             { className: "dshpp-page-ver" },
-            "\u793E\u533A\u7248 1.7.1"
+            "\u793E\u533A\u7248 1.7.2"
           ) : null
         )
       )

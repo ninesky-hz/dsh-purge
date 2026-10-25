@@ -1,3 +1,15 @@
+# 1.7.2
+
+四项遗留收尾，主体是接纳 rc.3 与移植上游的桌面目标身份校验。
+
+- **rc.3 接纳为验证宿主**：`QUALIFIED_HOST_VERSIONS` 增列 `0.2.1-rc.3`，面板不再对 rc.3 报「未验证版本」。
+- **桌面目标身份校验（上游 `ba81710`）**：新增 `lib/desktop-identity.js`（按应用束 `sha256` 判定身份，`hasDesktopIdentity`/`bundleExecutable`/`clearDesktopIdentityCache`），同机多份解包目录不再互相污染；`lib/desktop.js`、`lib/surface.js` 同步上游版。
+- **读作用域记忆化（上游 `3cc6d1b`）**：新增 `lib/desktop-read-scope.js`，冷启动不再反复全盘探测。
+- **面板两处状态证据**（上游 `7b21321`、`a9a7405`）：状态读取成功时清掉恢复性告警；缺宿主诊断提示只在诊断真正完成（`s?.ok === true`）时出现。
+- **未做**：`installed-package` 别名安装（上游 `eac2be2`）连带 prompt 归属判定改写，单列 1.7.3。
+
+[完整说明](docs/releases/1.7.2.md)
+
 # 1.7.1
 
 ## 借鉴上游 1.6.52–1.6.56 的四项改进

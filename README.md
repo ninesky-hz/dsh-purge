@@ -9,9 +9,9 @@
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前版本 **1.7.1** · 适配 **DSH Desktop 0.2.1-rc.2**（rc.1 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.2** · 适配 **DSH Desktop 0.2.1-rc.3**（rc.1 / rc.2 同样通过） · [English](docs/README.en.md)
 
-1.7.1 借鉴上游 1.6.52–1.6.56 的四处改动：去掉继承至今的「公共目标门」（攻击型任务解析到公网 IP 时整轮会被拦下并回「严令禁止」，现已移除，只保留面板的允许清单文件 API）；`runtime-layout` 支持多架构运行时的自动迁移与更安全的回滚诊断；演练面板主按钮改用反转 token，深色主题下不再白底白字；`gatherState` 的路径归一化与安装根列表加记忆，桌面布局冷启 677→639 ms、热查询 502→481 ms，Web 布局热查询 10.6 s→0.16 s。[发行说明](docs/releases/1.7.1.md) · [知识库说明](docs/HACKSKILLS.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md)。
+1.7.2 收掉 1.7.1 里保留的四项遗留：接纳 DSH Desktop `0.2.1-rc.3` 为主验证宿主；移植上游 `desktop-identity` / `desktop-read-scope` 两个模块与重写后的 `desktop.js`、`surface.js`（桌面目标身份校验按应用束 sha256 判定，避免同机多个解包目录互相污染；读作用域走记忆化，冷启动不再反复全盘探测）；面板仅在「状态读取成功」时清掉那条恢复性告警，缺宿主诊断提示只在诊断真正完成时出现。`installed-package` 别名安装（上游 `eac2be2`）连带 prompt 归属改写，单列 1.7.3。[发行说明](docs/releases/1.7.2.md) · [1.7.1 记录](docs/releases/1.7.1.md) · [知识库说明](docs/HACKSKILLS.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md)。
 
 </div>
 
@@ -144,7 +144,7 @@ powershell -ExecutionPolicy Bypass -File $env:TEMP\purge-install.ps1
 | 组件 | 值 |
 | --- | --- |
 | 插件 | `dsh-purge-community` 1.6.47 |
-| 已验证宿主 | DSH Desktop 0.2.1-rc.1 / 0.2.1-rc.2 |
+| 已验证宿主 | DSH Desktop 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 |
 | 其它宿主 | 允许安装，自检会标「未验证」；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
 

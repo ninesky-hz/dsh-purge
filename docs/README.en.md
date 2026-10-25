@@ -8,7 +8,7 @@ A self-hosted add-on for DeepSeek Harness (known in the community as a 破甲 / 
 
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 
-Current version 1.7.1 · targets **DSH Desktop 0.2.1-rc.2** (rc.1 also passes)
+Current version 1.7.2 · targets **DSH Desktop 0.2.1-rc.3** (rc.1 / rc.2 also pass)
 
 Bundled knowledge library: 101 pentest skills in `skills/hackskills` — see [Bundled knowledge library](HACKSKILLS.md).
 
@@ -72,7 +72,7 @@ Two separate preferences (check / install), default check-only every six hours. 
 
 ## Compatibility
 
-Plugin `dsh-purge-community` 1.7.1 · verified on DSH Desktop 0.2.1-rc.1 / rc.2 · Node ≥ 18.
+Plugin `dsh-purge-community` 1.7.2 · verified on DSH Desktop 0.2.1-rc.1 / rc.2 / rc.3 · Node ≥ 18.
 
 ## Troubleshooting
 
