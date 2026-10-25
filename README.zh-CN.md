@@ -9,9 +9,9 @@
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前版本 **1.6.52** · 适配 **DSH Desktop 0.2.1-rc.2**（rc.1 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.0** · 适配 **DSH Desktop 0.2.1-rc.2**（rc.1 同样通过） · [English](docs/README.en.md)
 
-1.6.52 整理面板「状态」页的排版：维护区与备份区统一成带分隔线的分组标题，危险操作（还原/卸载）单独成组并靠右，「63/65 条补丁已生效」与右侧「桌面端」拆行、后者改成圆角徽章，备份空状态从一行居中文案改成虚线卡片，版本不一致提示条改成左侧强调边，页脚加分隔线与次要色。[发行说明](docs/releases/1.6.52.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md) · [市场安装与迁移指南](docs/MARKET-MIGRATION.md)。
+1.7.0 随包带一份渗透知识库：**101 个技能**（1 个总路由 + 6 个分类 + 94 个专题，155 篇 markdown、约 1.7 MB）装完即用——启动时同步到 `$DSH_HOME/redteam/hackskills`，由红队预设的 `customSkillDirs` 加载；技能页把它单列成「知识库技能」，与「红队技能」（要查本机工具路径）、「官方技能」分开。目录摘要约 28 KB、正文按需读取；上游 MIT 许可与本地改动都随包留存。[知识库说明](docs/HACKSKILLS.md) · [发行说明](docs/releases/1.7.0.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md)。
 
 </div>
 

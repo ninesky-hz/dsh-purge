@@ -2561,7 +2561,18 @@ export const __dshPurgeDrill = (() => {
                 },
                 "官方",
               )
-            : h(
+            : s.library === "hackskills"
+              ? h(
+                  "span",
+                  {
+                    className: "rt-tag",
+                    style: { marginLeft: 6 },
+                    title:
+                      "随包知识库技能（目录束），文档型：不按红队工具路径检查",
+                  },
+                  "知识库",
+                )
+              : h(
                 "span",
                 {
                   className:
@@ -2597,7 +2608,8 @@ export const __dshPurgeDrill = (() => {
           ),
           (s.problems || []).length > 0 &&
             s.availability !== "available" &&
-            s.library !== "official"
+            s.library !== "official" &&
+            s.library !== "hackskills"
             ? h(
                 "div",
                 {
@@ -2612,7 +2624,10 @@ export const __dshPurgeDrill = (() => {
         ),
       );
     const redteamRows = filtered
-      .filter((s) => s.library !== "official")
+      .filter((s) => s.library !== "official" && s.library !== "hackskills")
+      .map(renderSkill);
+    const knowledgeRows = filtered
+      .filter((s) => s.library === "hackskills")
       .map(renderSkill);
     const officialRows = filtered
       .filter((s) => s.library === "official")
@@ -2631,6 +2646,20 @@ export const __dshPurgeDrill = (() => {
         ),
       );
       listItems.push.apply(listItems, redteamRows);
+    }
+    if (knowledgeRows.length > 0) {
+      listItems.push(
+        h(
+          "div",
+          {
+            key: "head-knowledge",
+            className: "rt-kb-sub",
+            style: { margin: "8px 0 4px", fontWeight: 600 },
+          },
+          "知识库技能",
+        ),
+      );
+      listItems.push.apply(listItems, knowledgeRows);
     }
     if (officialRows.length > 0) {
       listItems.push(
@@ -2747,6 +2776,8 @@ export const __dshPurgeDrill = (() => {
           },
           "红队 " +
             ((meta.libraries && meta.libraries.redteam) || 0) +
+            " · 知识库 " +
+            ((meta.libraries && meta.libraries.hackskills) || 0) +
             " · 官方 " +
             ((meta.libraries && meta.libraries.official) || 0),
           items.length > 100

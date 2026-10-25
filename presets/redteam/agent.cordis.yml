@@ -198,6 +198,9 @@
     customSkillDirs:
       - !!js dshHomePath('skills')
       - !!js dshHomePath('redteam/skills')
+      # 随包知识库（101 个目录束技能，MIT，来源见 docs/HACKSKILLS.md）。
+      # 由插件启动时从包内 skills/hackskills 同步到这里；单独一个条目，便于技能页按库分类。
+      - !!js dshHomePath('redteam/hackskills')
 
 - id: tool-skill
   name: '@deepseek-ai/dsh-tool-skill'

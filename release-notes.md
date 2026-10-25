@@ -1,3 +1,16 @@
+# 1.7.0
+
+## 随包知识库：101 个渗透技能，装完就能用
+
+- **载荷**：`skills/hackskills/<id>/SKILL.md`（101 个目录束 + 155 篇 markdown，1.69 MB）随包分发；同目录留 `LICENSE` 与 `SOURCE.json`（上游 commit、统计、每条本地改动）。
+- **落地**：`installHackskillLibrary()` 启动时按内容比对同步到 `$DSH_HOME/redteam/hackskills`；`$DSH_HOME` 与 `~/.dsh` 分叉时两边各一份，内容一致则 0 写入。
+- **接线**：红队预设的 `customSkillDirs` 增加第三行 `- !!js dshHomePath('redteam/hackskills')`。老用户预设只补这一行（`repaired: hackskills-dir`），其余内容原样保留。
+- **技能页分三库**：「红队技能」（查本机工具路径）/「知识库技能」（文档型，恒「已列出」）/「官方技能」；计数行变成「红队 N · 知识库 K · 官方 M」。
+- **断链修复**：删掉 2 条指向上游从未提供的 `nosql-injection` 的链接，6 处 `SCENARIOS.md` 引用降级成纯文本；全库 534 条相对链接 0 断链。
+- **成本**：目录摘要约 28 KB（每次会话注入），正文只在真加载技能时读取；tarball 2.31 MiB（知识库压缩后约 +0.60 MB）。
+
+[完整说明](docs/releases/1.7.0.md)
+
 # 1.6.52
 
 ## 状态页排版整理：分组、危险操作、空状态与提示条

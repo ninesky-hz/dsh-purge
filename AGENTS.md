@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.6.52** · 适配 DSH Desktop **0.2.1-rc.2**（rc.1 同样通过）
+> 当前版本：**1.7.0** · 适配 DSH Desktop **0.2.1-rc.2**（rc.1 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -131,7 +131,7 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.6.52 |
+| 插件 | `dsh-purge-community` 1.7.0 |
 | 已验证宿主 | DSH Desktop 0.2.1-rc.1 / 0.2.1-rc.2 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
@@ -342,3 +342,12 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 ## 桌面壳入口诊断（1.6.47，#68）
 
 `diagnose` 的 `desktop_entry` 与自检、应用使用相同解析器。优先所选物理 app 目录的 package.json/main；仅在无声明时使用唯一已知布局。`missing_entry`、`invalid_manifest`、`invalid_main`、`outside_app`、`not_file`、`unreadable_entry`、`ambiguous_entry` 都不能当作补丁已生效。不要删 main 字段、伪造 marker 或复制旧入口消除红点；核对安装文件与宿主版本，保留配置和原文件。已定位但锚点不匹配仍按原有漂移诊断处理。磁盘状态不证明当前进程已加载，不能自行重启用户 DSH。
+
+## 1.7.0：随包知识库（101 个技能，MIT）
+
+- 载荷是 `skills/hackskills/<id>/SKILL.md`（目录束，一个技能一个目录）；`installHackskillLibrary()` 按内容比对同步到 `$DSH_HOME/redteam/hackskills`，预设里对应第三行 `- !!js dshHomePath('redteam/hackskills')`。
+- 三库不能混：`skillLibraryOf()` 的判定顺序是 `redteam` → `hackskills` → 官方 `/skills`。顺序反了会把 `.../skills/hackskills/x` 标成官方技能。
+- 知识库是文档型：`availability` 恒 `listed`，不拿红队工具路径判定。也**不要**把 `skills/hackskills` 拷进 `$DSH_HOME/skills`——官方目录本包只读不写。
+- 老预设自愈只加一行（返回值 `repaired: 'hackskills-dir'`），`REDTEAM_PRESET_REFRESH=1` 才会整份覆盖现有预设。
+- 成本：目录摘要约 28 KB/会话，正文按需。禁用方式是从预设删掉那一行（下次自愈会加回来）或整份不加载红队预设；删包内目录没用，会被重新同步。
+- 校验：`node --test test/hackskills.test.mjs`。来源、统计与每条本地改动见 `skills/hackskills/SOURCE.json`，说明见 [知识库说明](docs/HACKSKILLS.md)。

@@ -1,0 +1,55 @@
+{
+  "schema": "dsh-purge-hackskills/v1",
+  "upstream": {
+    "repo": "yaklang/hack-skills",
+    "branch": "main",
+    "commit": "a3ab667",
+    "buildTime": "2026-04-29T06:12:56Z",
+    "indexSchema": "hack-skills-index/v1",
+    "indexReportedSkills": 101,
+    "indexReportedCategories": 18,
+    "indexReportedLines": 49121
+  },
+  "license": {
+    "spdx": "MIT",
+    "copyright": "Copyright (c) 2026 VillanCh",
+    "file": "LICENSE"
+  },
+  "vendored": {
+    "from": "ai-mian/hack-skills/skills (local checkout of the upstream repo)",
+    "at": "2026-10-25",
+    "by": "dsh-purge-community",
+    "skills": 101,
+    "markdownFiles": 155,
+    "markdownBytes": 1773594
+  },
+  "layout": {
+    "form": "bundle",
+    "pattern": "<id>/SKILL.md",
+    "extraDocs": "<id>/<TOPIC>.md (per-skill deep docs, kept as-is)"
+  },
+  "localEdits": [
+    {
+      "what": "removed two dead links to a non-existent ../nosql-injection/SKILL.md",
+      "files": [
+        "hack/SKILL.md",
+        "injection-checking/SKILL.md"
+      ],
+      "why": "upstream router links a NoSQL skill that upstream never shipped; the linked directory does not exist and no NoSQL body exists anywhere in the tree"
+    },
+    {
+      "what": "de-linked the missing ./SCENARIOS.md references (6 sites) into plain text 'SCENARIOS.md（上游未随包提供）'",
+      "files": [
+        "ssti-server-side-template-injection/SKILL.md",
+        "upload-insecure-files/SKILL.md"
+      ],
+      "why": "upstream SKILL.md points at a companion SCENARIOS.md that was not packaged; a dangling link makes the model try to load a file that cannot exist"
+    }
+  ],
+  "verify": {
+    "relativeLinksChecked": 534,
+    "relativeLinksBroken": 0,
+    "maxSkillBytes": 32256,
+    "skillNameRule": "^[a-z0-9]+(?:-[a-z0-9]+)*$"
+  }
+}

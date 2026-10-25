@@ -2348,6 +2348,14 @@ var __dshPurgeDrill = (() => {
             title: "\u5B98\u65B9\u6280\u80FD\u76EE\u5F55\uFF0C\u4E0D\u6309\u7EA2\u961F\u5DE5\u5177\u8DEF\u5F84\u68C0\u67E5"
           },
           "\u5B98\u65B9"
+        ) : s.library === "hackskills" ? h2(
+          "span",
+          {
+            className: "rt-tag",
+            style: { marginLeft: 6 },
+            title: "\u968F\u5305\u77E5\u8BC6\u5E93\u6280\u80FD\uFF08\u76EE\u5F55\u675F\uFF09\uFF0C\u6587\u6863\u578B\uFF1A\u4E0D\u6309\u7EA2\u961F\u5DE5\u5177\u8DEF\u5F84\u68C0\u67E5"
+          },
+          "\u77E5\u8BC6\u5E93"
         ) : h2(
           "span",
           {
@@ -2372,7 +2380,7 @@ var __dshPurgeDrill = (() => {
             s.dir ? s.dir : null
           ].filter(Boolean).join(" \xB7 ")
         ),
-        (s.problems || []).length > 0 && s.availability !== "available" && s.library !== "official" ? h2(
+        (s.problems || []).length > 0 && s.availability !== "available" && s.library !== "official" && s.library !== "hackskills" ? h2(
           "div",
           {
             className: "rt-kb-sub",
@@ -2384,7 +2392,8 @@ var __dshPurgeDrill = (() => {
         ) : null
       )
     );
-    const redteamRows = filtered.filter((s) => s.library !== "official").map(renderSkill);
+    const redteamRows = filtered.filter((s) => s.library !== "official" && s.library !== "hackskills").map(renderSkill);
+    const knowledgeRows = filtered.filter((s) => s.library === "hackskills").map(renderSkill);
     const officialRows = filtered.filter((s) => s.library === "official").map(renderSkill);
     const listItems = [];
     if (redteamRows.length > 0) {
@@ -2400,6 +2409,20 @@ var __dshPurgeDrill = (() => {
         )
       );
       listItems.push.apply(listItems, redteamRows);
+    }
+    if (knowledgeRows.length > 0) {
+      listItems.push(
+        h2(
+          "div",
+          {
+            key: "head-knowledge",
+            className: "rt-kb-sub",
+            style: { margin: "8px 0 4px", fontWeight: 600 }
+          },
+          "\u77E5\u8BC6\u5E93\u6280\u80FD"
+        )
+      );
+      listItems.push.apply(listItems, knowledgeRows);
     }
     if (officialRows.length > 0) {
       listItems.push(
@@ -2502,7 +2525,7 @@ var __dshPurgeDrill = (() => {
               marginBottom: 6
             }
           },
-          "\u7EA2\u961F " + (meta.libraries && meta.libraries.redteam || 0) + " \xB7 \u5B98\u65B9 " + (meta.libraries && meta.libraries.official || 0),
+          "\u7EA2\u961F " + (meta.libraries && meta.libraries.redteam || 0) + " \xB7 \u77E5\u8BC6\u5E93 " + (meta.libraries && meta.libraries.hackskills || 0) + " \xB7 \u5B98\u65B9 " + (meta.libraries && meta.libraries.official || 0),
           items.length > 100 ? h2(
             "div",
             { style: { marginTop: 3 } },
@@ -12857,7 +12880,7 @@ function SettingsRoot(props = {}) {
       h(
         "span",
         { className: "dshpp-native-badge" },
-        (true ? "\u793E\u533A\u7248 " : "\u72EC\u7ACB\u754C\u9762 ") + "1.6.52"
+        (true ? "\u793E\u533A\u7248 " : "\u72EC\u7ACB\u754C\u9762 ") + "1.7.0"
       )
     ),
     h(CompatibilityNote, { status: backendStatus }),
@@ -13013,7 +13036,7 @@ function StatusStrip({ info }) {
       "span",
       { className: "dshpp-strip-item" },
       "\u63D2\u4EF6 ",
-      h("b", null, info?.plugin_version || "1.6.52")
+      h("b", null, info?.plugin_version || "1.7.0")
     )
   );
 }
@@ -13048,11 +13071,11 @@ function VersionNotice({ info }) {
     );
   }
   const backend = info?.plugin_version;
-  if (!backend || backend === "1.6.52") return null;
+  if (!backend || backend === "1.7.0") return null;
   return h(
     "p",
     { className: "dshpp-warn", role: "status" },
-    `\u5B98\u65B9\u7248\u672C ${backend}\uFF1B\u754C\u9762 ${"1.6.52"}\u3002\u4E24\u8005\u4E0D\u4E00\u81F4\u65F6\u8BBE\u7F6E\u53EF\u80FD\u4E0D\u751F\u6548\uFF0C\u8BF7\u66F4\u65B0\u5230\u540C\u4E00\u7248\u672C\u540E\u91CD\u542F DSH\u3002`
+    `\u5B98\u65B9\u7248\u672C ${backend}\uFF1B\u754C\u9762 ${"1.7.0"}\u3002\u4E24\u8005\u4E0D\u4E00\u81F4\u65F6\u8BBE\u7F6E\u53EF\u80FD\u4E0D\u751F\u6548\uFF0C\u8BF7\u66F4\u65B0\u5230\u540C\u4E00\u7248\u672C\u540E\u91CD\u542F DSH\u3002`
   );
 }
 function PurgePage() {
@@ -13109,7 +13132,7 @@ function PurgePage() {
           true ? h(
             "span",
             { className: "dshpp-page-ver" },
-            "\u793E\u533A\u7248 1.6.52"
+            "\u793E\u533A\u7248 1.7.0"
           ) : null
         )
       )
