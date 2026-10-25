@@ -85,7 +85,9 @@ var __dshPurgeDrill = (() => {
 .rt-btn{border:1px solid var(--dsw-alias-border-l1);background:var(--dsw-alias-bg-layer-2);color:inherit;
   border-radius:6px;padding:3px 9px;font-size:12px;cursor:pointer;font-family:inherit;white-space:nowrap}
 .rt-btn:hover{border-color:var(--dsw-alias-border-l2)}
-.rt-btn-primary{background:var(--dsw-alias-brand-primary);border-color:var(--dsw-alias-brand-primary);color:#fff}
+/* brand-primary \u5728\u6DF1\u8272\u4E3B\u9898\u4E0B\u662F\u8FD1\u767D\u8272\uFF08#f9fafb\uFF09\uFF0C\u5F53\u5E95\u8272\u914D #fff \u4F1A\u767D\u5E95\u767D\u5B57\u3002
+   \u6539\u7528\u6807\u7B7E\u8272/\u5E95\u8272\u8FD9\u5BF9\u53CD\u8F6C token\uFF0C\u4E24\u5957\u4E3B\u9898\u90FD\u4FDD\u6301\u9AD8\u5BF9\u6BD4\u3002 */
+.rt-btn-primary{background:var(--dsw-alias-label-primary,#111);border-color:var(--dsw-alias-label-primary,#111);color:var(--dsw-alias-bg-base,#fff)}
 .rt-btn-primary:hover{opacity:.9}
 .rt-btn:disabled{opacity:.5;cursor:default}
 .rt-tabs{display:flex;flex-wrap:wrap;gap:2px;padding:6px 12px 0;border-bottom:1px solid var(--dsw-alias-border-l1)}
@@ -436,7 +438,7 @@ var __dshPurgeDrill = (() => {
 .rt-rep-trace-how{font-size:12px;color:var(--dsw-alias-label-secondary);margin-bottom:6px}
 .rt-rep-step{border-left:2px solid var(--dsw-alias-border-l1);padding:2px 0 6px 9px;margin-bottom:6px}
 .rt-rep-step-head{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.rt-rep-step-no{width:17px;height:17px;border-radius:50%;background:var(--dsw-alias-brand-primary);color:#fff;
+.rt-rep-step-no{width:17px;height:17px;border-radius:50%;background:var(--dsw-alias-label-primary,#111);color:var(--dsw-alias-bg-base,#fff);
   font-size:10.5px;display:flex;align-items:center;justify-content:center;flex:none}
 .rt-rep-step-title{font-weight:600;font-size:12.5px}
 .rt-rep-step-detail{font-size:12px;color:var(--dsw-alias-label-secondary);margin-top:2px}
@@ -12880,7 +12882,7 @@ function SettingsRoot(props = {}) {
       h(
         "span",
         { className: "dshpp-native-badge" },
-        (true ? "\u793E\u533A\u7248 " : "\u72EC\u7ACB\u754C\u9762 ") + "1.7.0"
+        (true ? "\u793E\u533A\u7248 " : "\u72EC\u7ACB\u754C\u9762 ") + "1.7.1"
       )
     ),
     h(CompatibilityNote, { status: backendStatus }),
@@ -13036,7 +13038,7 @@ function StatusStrip({ info }) {
       "span",
       { className: "dshpp-strip-item" },
       "\u63D2\u4EF6 ",
-      h("b", null, info?.plugin_version || "1.7.0")
+      h("b", null, info?.plugin_version || "1.7.1")
     )
   );
 }
@@ -13071,11 +13073,11 @@ function VersionNotice({ info }) {
     );
   }
   const backend = info?.plugin_version;
-  if (!backend || backend === "1.7.0") return null;
+  if (!backend || backend === "1.7.1") return null;
   return h(
     "p",
     { className: "dshpp-warn", role: "status" },
-    `\u5B98\u65B9\u7248\u672C ${backend}\uFF1B\u754C\u9762 ${"1.7.0"}\u3002\u4E24\u8005\u4E0D\u4E00\u81F4\u65F6\u8BBE\u7F6E\u53EF\u80FD\u4E0D\u751F\u6548\uFF0C\u8BF7\u66F4\u65B0\u5230\u540C\u4E00\u7248\u672C\u540E\u91CD\u542F DSH\u3002`
+    `\u5B98\u65B9\u7248\u672C ${backend}\uFF1B\u754C\u9762 ${"1.7.1"}\u3002\u4E24\u8005\u4E0D\u4E00\u81F4\u65F6\u8BBE\u7F6E\u53EF\u80FD\u4E0D\u751F\u6548\uFF0C\u8BF7\u66F4\u65B0\u5230\u540C\u4E00\u7248\u672C\u540E\u91CD\u542F DSH\u3002`
   );
 }
 function PurgePage() {
@@ -13132,7 +13134,7 @@ function PurgePage() {
           true ? h(
             "span",
             { className: "dshpp-page-ver" },
-            "\u793E\u533A\u7248 1.7.0"
+            "\u793E\u533A\u7248 1.7.1"
           ) : null
         )
       )

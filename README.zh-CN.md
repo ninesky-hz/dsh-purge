@@ -9,9 +9,9 @@
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前版本 **1.7.0** · 适配 **DSH Desktop 0.2.1-rc.2**（rc.1 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.1** · 适配 **DSH Desktop 0.2.1-rc.2**（rc.1 同样通过） · [English](docs/README.en.md)
 
-1.7.0 随包带一份渗透知识库：**101 个技能**（1 个总路由 + 6 个分类 + 94 个专题，155 篇 markdown、约 1.7 MB）装完即用——启动时同步到 `$DSH_HOME/redteam/hackskills`，由红队预设的 `customSkillDirs` 加载；技能页把它单列成「知识库技能」，与「红队技能」（要查本机工具路径）、「官方技能」分开。目录摘要约 28 KB、正文按需读取；上游 MIT 许可与本地改动都随包留存。[知识库说明](docs/HACKSKILLS.md) · [发行说明](docs/releases/1.7.0.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md)。
+1.7.1 借鉴上游 1.6.52–1.6.56 的四处改动：去掉继承至今的「公共目标门」（攻击型任务解析到公网 IP 时整轮会被拦下并回「严令禁止」，现已移除，只保留面板的允许清单文件 API）；`runtime-layout` 支持多架构运行时的自动迁移与更安全的回滚诊断；演练面板主按钮改用反转 token，深色主题下不再白底白字；`gatherState` 的路径归一化与安装根列表加记忆，桌面布局冷启 677→639 ms、热查询 502→481 ms，Web 布局热查询 10.6 s→0.16 s。[发行说明](docs/releases/1.7.1.md) · [知识库说明](docs/HACKSKILLS.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md)。
 
 </div>
 

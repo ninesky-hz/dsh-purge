@@ -1,3 +1,16 @@
+# 1.7.1
+
+## 借鉴上游 1.6.52–1.6.56 的四项改进
+
+- **去掉「公共目标门」**（上游 73468cf）：插件仍在装 `net-scope` 的 agent/pre-step 门禁，攻击型任务解析到公网 IP 时会把整轮清空并回「不行,这是严令禁止的」。现在移除 `installRegionGate` 与 261 行检测/拒绝分块，保留面板用的允许清单文件 API（`readAllowText`/`writeAllowText`）。
+- **运行时链接迁移**（上游 d80056a / b7b1e18）：`lib/runtime-layout.js` 新增 `findPnpmEntry()`，能识别 `runtime/primary-runtime/...` 与 `runtime/<arch>/primary-runtime/...` 两种布局；同安装内的架构容器链接会自动迁移（`migration: "architecture_container"`），外置目标仍是冲突；失败路径区分 `backup_failed` / `link_repair_failed` 并回滚。`test/runtime-layout.test.mjs` 扩到 17 条。
+- **演练面板深色主题对比度**（上游 c492bb6）：`brand-primary` 在深色主题下是近白色（`#f9fafb`），配 `#fff` 文字只有 1.05:1。`.rt-btn-primary` 与 `.rt-rep-step-no` 改用 `label-primary`/`bg-base` 这对反转 token，深色 17.45:1、浅色 17:1。
+- **状态查询省掉重复 fs**（上游 d91d671 的适用部分）：`realNorm()` 只记忆成功解析的路径（不存在的一律重探），`listDesktopInstallRoots()` 按入参记忆，`clearDesktopLocateCache()` 一并清理两张表。桌面布局冷启 677→639 ms、热查询 502→481 ms；Web 布局（无解包宿主）热查询 10 555→157 ms。
+
+**未采纳**（附理由）：`desktop-identity` 身份证据缓存——我们这一支没有该文件，11 s 那笔开销在本仓库不存在；面板状态「证据按次读取」重构（3cc6d1b/7b21321/a9a7405）——与 1.6.52 的排版改动落在同几行，先留待单独分支；`installed-package` 别名安装（eac2be2）——改动横跨 `community.js`/`core.js`，需要配合安装器一起验证。
+
+[完整说明](docs/releases/1.7.1.md)
+
 # 1.7.0
 
 ## 随包知识库：101 个渗透技能，装完就能用
