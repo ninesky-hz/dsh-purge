@@ -1,3 +1,15 @@
+# 1.7.5
+
+第一条写进宿主本体（`dsh-desktop-host`）的补丁：启动途中被 shutdown 时静默退出，不再弹「无法启动」框。
+
+- **现象**：点「应用」→ 重启 DSH → `The application could not start or stopped unexpectedly` / `cannot create effect on inactive context`，再开一次就正常。
+- **根因**：`dsh-desktop-host` 的 `main()` 在 boot 完成后装更新任务控制器，`installDesktopUpdateTaskControl(ctx)` 第一步就是 `ctx.effect(...)`；boot 期间收到过 `shutdown` 时该 `ctx` 已 dispose → `INACTIVE_EFFECT` → 宿主发 fatal → Electron 弹框。实测用同样 argv 直接启动宿主（隔离 home / 复制真实 home）两次都正常，只有「boot 期间被要求退出」才会走到这里。
+- **改法（#91 `DESKTOP_HOST_BOOT_INACTIVE_QUIET`）**：两行装控制器包进 try/catch；仅当 `stopping !== void 0` 且 `error.code === "INACTIVE_EFFECT"` 时，回 `shutdown-complete` → 断开 IPC → `exit(0)`；配合 #83 的 `code=0 不报错`，表现变成「这次启动自己退掉，再点一次就好」。其他错误照旧抛出。
+- **范围**：新增宿主目标键 `desktop-host`（平铺 + `dsh/node_modules` 两种布局），补丁 `optional: true` + `surfaces: ["desktop"]`；`selfcheck`「桌面宿主启动兜底」层纳入 #91。
+- **回归**：`test/patch-anchors.test.mjs` 新增一条（锚点、接管条件、`shutdown-complete`、`throw error`、幂等）；补丁应用到真实宿主副本后 `node --check` 通过。
+
+[完整说明](docs/releases/1.7.5.md)
+
 # 1.7.4
 
 修一个会把启动拦住的崩溃框：桌面已解包后点「应用」，不再自动重启。

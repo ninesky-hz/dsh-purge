@@ -15,7 +15,7 @@ import {
 } from "../lib/core.js";
 import { rollupLayers } from "../lib/selfcheck.js";
 import { removeTreeNoFollowSync } from "../lib/remove-tree.js";
-const patches = ALL_PATCHES.filter((p) => [82, 83, 84].includes(p.id));
+const patches = ALL_PATCHES.filter((p) => [82, 83, 84, 91].includes(p.id));
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), "purge-entry-"));
   const app = path.join(root, "选定 Desktop", "resources", "app"),
@@ -48,7 +48,8 @@ for (const layout of SHELL_MAIN_CANDIDATES)
       assert.equal(resolveDesktopEntry(f.app).file, file);
       assert.equal(targetFiles(f.host, f.home)["desktop-shell"], file);
       const status = await patchStatus(f.host, patches, opts);
-      assert.deepEqual(status, { 82: "applied", 83: "applied", 84: "applied" });
+      // #91 写的是宿主本体 dsh-desktop-host，这个 fixture 里没有该文件 → 明确「不适用」。
+      assert.deepEqual(status, { 82: "applied", 83: "applied", 84: "applied", 91: "na" });
       const layer = rollupLayers(status, true, { patches }).find(
         (l) => l.title === "桌面宿主启动兜底",
       );

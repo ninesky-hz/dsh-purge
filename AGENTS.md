@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.4** · 适配 DSH Desktop **0.2.1-rc.3**（rc.1 / rc.2 同样通过）
+> 当前版本：**1.7.5** · 适配 DSH Desktop **0.2.1-rc.3**（rc.1 / rc.2 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -131,7 +131,7 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.4 |
+| 插件 | `dsh-purge-community` 1.7.5 |
 | 已验证宿主 | DSH Desktop 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
@@ -368,3 +368,13 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - 判定集中在 `lib/settle-policy.js` 的 `applyShouldRestart()`：`sealed` 优先，其次 `surface === "desktop"`，最后才是 `complete / promptReady / appliedCount`。要改这段行为就改那里，别在调用方再写一套。
 - Web / headless / 未知 surface 维持旧规则；`test/apply-restart-policy.test.mjs` 钉住这四种组合。
 - 崩溃日志：`%APPDATA%\@deepseek-ai\dsh-desktop\logs\crash-*-host.log`。遇到它先看 `phase` 与栈，别先归因到补丁。
+
+## 1.7.5：宿主 boot 期被 shutdown 时静默退出（#91）
+
+- 新补丁 `DESKTOP_HOST_BOOT_INACTIVE_QUIET` 写宿主本体 `dsh-desktop-host/lib/index.js`：`main()` 里 `installDesktopUpdateTaskControl(ctx)` / `installDesktopQuitInspection(ctx)` 两行包进 try/catch。
+- 接管条件很窄：`stopping !== void 0`（确实在退出流程）**且** `error.code === "INACTIVE_EFFECT"`。命中时回 `shutdown-complete` → `process.disconnect()` → `process.exit(0)`；shell 侧 #83 把 `code=0` 当正常退出，不再弹「无法启动」。
+- 其他错误照旧 `throw`。**不要**把条件放宽成「任何 boot 异常都静默」——那会把真故障变成黑窗。
+- 非 shutdown 场景的 `INACTIVE_EFFECT` 仍会走 fatal：那种情况宿主没有可服务的 ctx，静默退出会让 shell 一直等 ready。
+- 新增目标键 `desktop-host`（`targetFiles()`），补丁带 `optional: true` + `surfaces: ["desktop"]`；`selfcheck`「桌面宿主启动兜底」层现在是 `[82, 83, 84, 91]`。
+- 这是本插件第一条宿主本体补丁：宿主升级后若 `diagnose` 报 #91 漂移，走 `reanchor`，不要手改 `dsh-desktop-host`。
+- 验证：真实宿主副本应用后 `node --check` 通过、二次应用 `changed=false`；`test/patch-anchors.test.mjs` 有对应回归。

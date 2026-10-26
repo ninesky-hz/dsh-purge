@@ -53,6 +53,22 @@ test("0.2.1 rewind marker drops sent messages on append", () => {
   assert.equal(applyReplacementsToText(out.text, patch(77)).changed, false);
 });
 
+test("1.7.5 host boot: an inactive ctx during shutdown exits quietly instead of raising fatal", () => {
+  const source =
+    "\tconst { ctx } = await application;\n" +
+    "\tcontrol.updateTasks = installDesktopUpdateTaskControl(ctx);\n" +
+    "\tcontrol.quitInspection = installDesktopQuitInspection(ctx);\n";
+  const out = applyReplacementsToText(source, patch(91));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("[dsh-purge] boot 途中收到 shutdown"));
+  assert.ok(out.text.includes('error.code === "INACTIVE_EFFECT"'));
+  assert.ok(out.text.includes('stopping !== void 0'));
+  assert.ok(out.text.includes('await send({ type: "shutdown-complete" })'));
+  assert.ok(out.text.includes("throw error;"));
+  // 幂等：已打过就不再改
+  assert.equal(applyReplacementsToText(out.text, patch(91)).changed, false);
+});
+
 test("undo and chained patches declare their settle semantics", () => {
   assert.equal(patch(80).settleWhenAbsent, true);
   assert.equal(patch(88).chainedAfter, 87);
