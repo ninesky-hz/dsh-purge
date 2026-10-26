@@ -9,9 +9,9 @@
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前版本 **1.7.3** · 适配 **DSH Desktop 0.2.1-rc.3**（rc.1 / rc.2 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.4** · 适配 **DSH Desktop 0.2.1-rc.3**（rc.1 / rc.2 同样通过） · [English](docs/README.en.md)
 
-1.7.3 收尾换包后的终态识别与测试基础设施：宿主完成 asar 换包后（`app.asar` 已改名为 `.purge-<token>.bak`、`resources/app/` 就位）不再被误判成「归档缺失」，新增 `unpackedFinalLayout()` 与两条回归；`instance.js` 把宿主主包清单与组件根推导收成一份，`normalizeHostBase` 与调用方不再各存名单；`test/env-isolate.mjs` 清掉继承的 `PURGE_UPDATE_REPO` / `PURGE_UPDATE_PROVIDER` / `PURGE_GH_MIRROR`，Windows 上「默认发行源」断言不再被机器级变量污染；新增 `.gitattributes`（`client.js -text`），`core.autocrlf=true` 的检出不再让 `check:client` 误报产物过期。`installed-package` 别名安装（上游 `eac2be2`）连带 prompt 归属改写，单列 1.7.4。[发行说明](docs/releases/1.7.3.md) · [1.7.2 记录](docs/releases/1.7.2.md) · [知识库说明](docs/HACKSKILLS.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md)。
+1.7.4 修一个会把启动拦住的崩溃框：桌面已解包时点「应用」会顺手请求一次重启，若这时又从托盘退一次，宿主会在 boot 途中被 shutdown，`installDesktopUpdateTaskControl(ctx)` 拿到已 dispose 的上下文并抛 `CordisError: cannot create effect on inactive context`，弹出「The application could not start or stopped unexpectedly」。现在桌面解包后只写盘、不自动重启，面板明确提示「完全退出后重新打开一次」；密封宿主的换包重启保持不变（它等的是退出，不是重启）。`applyShouldRestart()` 新增 `surface` 判定，Web 与未知 surface 行为不变，新增 `test/apply-restart-policy.test.mjs` 钉住这四种组合。[发行说明](docs/releases/1.7.4.md) · [1.7.3 记录](docs/releases/1.7.3.md) · [知识库说明](docs/HACKSKILLS.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md)。
 
 </div>
 

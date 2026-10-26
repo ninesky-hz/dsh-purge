@@ -8,7 +8,7 @@ A self-hosted add-on for DeepSeek Harness (known in the community as a 破甲 / 
 
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 
-Current version 1.7.3 · targets **DSH Desktop 0.2.1-rc.3** (rc.1 / rc.2 also pass)
+Current version 1.7.4 · targets **DSH Desktop 0.2.1-rc.3** (rc.1 / rc.2 also pass)
 
 Bundled knowledge library: 101 pentest skills in `skills/hackskills` — see [Bundled knowledge library](HACKSKILLS.md).
 

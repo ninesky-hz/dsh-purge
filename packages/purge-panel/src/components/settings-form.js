@@ -453,6 +453,15 @@ export function PurgifySection({ page = "status", onStatus } = {}) {
                 loadAll();
                 return;
               }
+              if (d.manual_restart_required) {
+                setNotice({
+                  kind: "ok",
+                  text: "补丁已写入磁盘。请从系统托盘「完全退出」DSH，再打开一次，补丁才会加载（桌面不再自动重启，避免与手动重启撞车）。",
+                });
+                setAskRestart(false);
+                loadAll();
+                return;
+              }
               setNotice({ kind: "ok", text: tr("ok.done") });
               loadAll();
               if (d.restarting || d.needs_full_quit) {

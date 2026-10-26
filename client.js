@@ -11288,6 +11288,15 @@ function PurgifySection({ page = "status", onStatus } = {}) {
               loadAll();
               return;
             }
+            if (d.manual_restart_required) {
+              setNotice({
+                kind: "ok",
+                text: "\u8865\u4E01\u5DF2\u5199\u5165\u78C1\u76D8\u3002\u8BF7\u4ECE\u7CFB\u7EDF\u6258\u76D8\u300C\u5B8C\u5168\u9000\u51FA\u300DDSH\uFF0C\u518D\u6253\u5F00\u4E00\u6B21\uFF0C\u8865\u4E01\u624D\u4F1A\u52A0\u8F7D\uFF08\u684C\u9762\u4E0D\u518D\u81EA\u52A8\u91CD\u542F\uFF0C\u907F\u514D\u4E0E\u624B\u52A8\u91CD\u542F\u649E\u8F66\uFF09\u3002"
+              });
+              setAskRestart(false);
+              loadAll();
+              return;
+            }
             setNotice({ kind: "ok", text: tr("ok.done") });
             loadAll();
             if (d.restarting || d.needs_full_quit) {
@@ -12887,7 +12896,7 @@ function SettingsRoot(props = {}) {
       h(
         "span",
         { className: "dshpp-native-badge" },
-        (true ? "\u793E\u533A\u7248 " : "\u72EC\u7ACB\u754C\u9762 ") + "1.7.3"
+        (true ? "\u793E\u533A\u7248 " : "\u72EC\u7ACB\u754C\u9762 ") + "1.7.4"
       )
     ),
     h(CompatibilityNote, { status: backendStatus }),
@@ -13043,7 +13052,7 @@ function StatusStrip({ info }) {
       "span",
       { className: "dshpp-strip-item" },
       "\u63D2\u4EF6 ",
-      h("b", null, info?.plugin_version || "1.7.3")
+      h("b", null, info?.plugin_version || "1.7.4")
     )
   );
 }
@@ -13078,11 +13087,11 @@ function VersionNotice({ info }) {
     );
   }
   const backend = info?.plugin_version;
-  if (!backend || backend === "1.7.3") return null;
+  if (!backend || backend === "1.7.4") return null;
   return h(
     "p",
     { className: "dshpp-warn", role: "status" },
-    `\u5B98\u65B9\u7248\u672C ${backend}\uFF1B\u754C\u9762 ${"1.7.3"}\u3002\u4E24\u8005\u4E0D\u4E00\u81F4\u65F6\u8BBE\u7F6E\u53EF\u80FD\u4E0D\u751F\u6548\uFF0C\u8BF7\u66F4\u65B0\u5230\u540C\u4E00\u7248\u672C\u540E\u91CD\u542F DSH\u3002`
+    `\u5B98\u65B9\u7248\u672C ${backend}\uFF1B\u754C\u9762 ${"1.7.4"}\u3002\u4E24\u8005\u4E0D\u4E00\u81F4\u65F6\u8BBE\u7F6E\u53EF\u80FD\u4E0D\u751F\u6548\uFF0C\u8BF7\u66F4\u65B0\u5230\u540C\u4E00\u7248\u672C\u540E\u91CD\u542F DSH\u3002`
   );
 }
 function PurgePage() {
@@ -13139,7 +13148,7 @@ function PurgePage() {
           true ? h(
             "span",
             { className: "dshpp-page-ver" },
-            "\u793E\u533A\u7248 1.7.3"
+            "\u793E\u533A\u7248 1.7.4"
           ) : null
         )
       )

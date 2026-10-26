@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.3** · 适配 DSH Desktop **0.2.1-rc.3**（rc.1 / rc.2 同样通过）
+> 当前版本：**1.7.4** · 适配 DSH Desktop **0.2.1-rc.3**（rc.1 / rc.2 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -131,7 +131,7 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.3 |
+| 插件 | `dsh-purge-community` 1.7.4 |
 | 已验证宿主 | DSH Desktop 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
@@ -359,3 +359,12 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - `npm test` 已用 `--import ./test/env-isolate.mjs` 清掉 `PURGE_UPDATE_REPO` / `PURGE_UPDATE_PROVIDER` / `PURGE_GH_MIRROR`。也就是说：本机把更新源指向 Gitee 不再让「默认发行源」断言变红；反过来，要测镜像源行为必须在用例里显式设变量，不能指望继承环境。
 - `client.js` 由 `.gitattributes` 钉成 `-text`。改完面板源码要跑 `npm run check:client`（按字节比 LF），不要手工改行尾去"修"它。
 - 本版没有新增宿主补丁，也没有改锚点；升级后仍要手动「应用」+ 完整退出重开。
+
+## 1.7.4：桌面解包后不自动重启
+
+- 桌面宿主已解包时点「应用」**只写盘，不再 requestRestart**；面板/命令会提示「从系统托盘完全退出，再打开一次」。照做即可，别连点对话框上的 `Restart`。
+- 原因：桌面宿主在 boot 途中被 shutdown 时，`installDesktopUpdateTaskControl(ctx)` 会拿到已 dispose 的 `ctx`，抛 `CordisError: cannot create effect on inactive context`（`INACTIVE_EFFECT`），表现为「The application could not start or stopped unexpectedly」。这类框不代表补丁写坏——`selfcheck` 通常仍是全绿（本机实测 69/69）。
+- **密封桌面**（`app.asar` 还在）仍走换包：`waiting_for_quit` 只是助手就绪，必须用户完整退出，`complete` 才算换完。
+- 判定集中在 `lib/settle-policy.js` 的 `applyShouldRestart()`：`sealed` 优先，其次 `surface === "desktop"`，最后才是 `complete / promptReady / appliedCount`。要改这段行为就改那里，别在调用方再写一套。
+- Web / headless / 未知 surface 维持旧规则；`test/apply-restart-policy.test.mjs` 钉住这四种组合。
+- 崩溃日志：`%APPDATA%\@deepseek-ai\dsh-desktop\logs\crash-*-host.log`。遇到它先看 `phase` 与栈，别先归因到补丁。

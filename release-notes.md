@@ -1,3 +1,15 @@
+# 1.7.4
+
+修一个会把启动拦住的崩溃框：桌面已解包后点「应用」，不再自动重启。
+
+- **现象**：点「应用」→ 手动重启 DSH → 弹 `The application could not start or stopped unexpectedly`，详情 `cannot create effect on inactive context`。
+- **根因**：已解包桌面点「应用」会请求一次重启；用户同时也退一次时，宿主在 boot 途中收到 shutdown，`ctx` 先被 dispose，随后 `installDesktopUpdateTaskControl(ctx)` 的 `ctx.effect(...)` 抛 `INACTIVE_EFFECT`。崩溃栈落在 DSH 自己的 `dsh-desktop-host`，不在本插件的补丁目标里（该文件没有任何 `dsh-purge` 标记）。
+- **改法**：`applyShouldRestart()` 增加 `surface`；`sealed` 仍返回 true（换包必须退出重开），`surface === "desktop"` 且未密封返回 false。面板/命令提示改为「补丁已写入磁盘，请从系统托盘完全退出后重新打开一次」。
+- **不变**：Web / headless / 未知 surface 仍是写盘即重启；密封桌面的换包握手（`waiting_for_quit` → `complete`）不变；补丁表、权限、提示词、更新策略未改。
+- **回归**：新增 `test/apply-restart-policy.test.mjs`（密封桌面 / 解包桌面 / web 与未知 surface / `INACTIVE_EFFECT` 识别）。
+
+[完整说明](docs/releases/1.7.4.md)
+
 # 1.7.3
 
 换包终态识别、测试隔离与 Windows 换行守卫；没有行为变更，补丁表 / 权限 / 提示词都不动。
