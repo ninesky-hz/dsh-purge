@@ -1,3 +1,18 @@
+# 1.7.3
+
+换包终态识别、测试隔离与 Windows 换行守卫；没有行为变更，补丁表 / 权限 / 提示词都不动。
+
+- **换包后不再误判「归档缺失」**：`lib/desktop.js` 新增 `unpackedFinalLayout()`。换包成功时 `app.asar` 已被助手改名成 `app.asar.purge-<token>.bak`、宿主改从 `resources/app/` 启动，旧判据把这种终态读成「归档缺失」。现在三条磁盘证据（归档不是文件 / `app` 目录在 / 其下有 DSH 主包 manifest）同时成立才算终态，否则交回原有分支；证据只取同一个 `<resources>`，不扫其他安装。
+- **宿主主包清单收成一份**：`lib/instance.js` 的 `HOST_PACKAGES` 与 `componentRoots()` 与 `normalizeHostBase` 共用，避免自检与诊断各存一份名单后悄悄漂移。
+- **测试与机器级环境变量解耦**：新增 `test/env-isolate.mjs`，清掉继承的 `PURGE_UPDATE_REPO` / `PURGE_UPDATE_PROVIDER` / `PURGE_GH_MIRROR`，`npm test` 通过 `--import` 接入。此前在设了 Gitee 更新源变量的机器上，「默认发行源」类断言会整片变红（本机实测 13 条），与宿主版本无关。
+- **Windows 换行守卫**：新增 `.gitattributes`（`client.js -text`）。`core.autocrlf=true` 的检出会把生成物变成 CRLF，而 `check:client` 与 `test/ui-overlay-styles.test.mjs` 按字节比较 LF 产物，必然误报过期。
+- **回归**：新增 `test/diagnostic-host.test.mjs`、`test/unpacked-restart-guard.test.mjs`。
+- **未做**：`installed-package` 别名安装（上游 `eac2be2`）连带 prompt 归属改写，顺延到 1.7.4。
+
+验证：`check:client` PASS、`check:docs` 1.7.3 一致、`node --test instance/diagnostic-host/unpacked-restart-guard` = 41 pass / 0 fail。
+
+[完整说明](docs/releases/1.7.3.md)
+
 # 1.7.2
 
 四项遗留收尾，主体是接纳 rc.3 与移植上游的桌面目标身份校验。

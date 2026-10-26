@@ -9,9 +9,9 @@
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前版本 **1.7.2** · 适配 **DSH Desktop 0.2.1-rc.3**（rc.1 / rc.2 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.3** · 适配 **DSH Desktop 0.2.1-rc.3**（rc.1 / rc.2 同样通过） · [English](docs/README.en.md)
 
-1.7.2 收掉 1.7.1 里保留的四项遗留：接纳 DSH Desktop `0.2.1-rc.3` 为主验证宿主；移植上游 `desktop-identity` / `desktop-read-scope` 两个模块与重写后的 `desktop.js`、`surface.js`（桌面目标身份校验按应用束 sha256 判定，避免同机多个解包目录互相污染；读作用域走记忆化，冷启动不再反复全盘探测）；面板仅在「状态读取成功」时清掉那条恢复性告警，缺宿主诊断提示只在诊断真正完成时出现。`installed-package` 别名安装（上游 `eac2be2`）连带 prompt 归属改写，单列 1.7.3。[发行说明](docs/releases/1.7.2.md) · [1.7.1 记录](docs/releases/1.7.1.md) · [知识库说明](docs/HACKSKILLS.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md)。
+1.7.3 收尾换包后的终态识别与测试基础设施：宿主完成 asar 换包后（`app.asar` 已改名为 `.purge-<token>.bak`、`resources/app/` 就位）不再被误判成「归档缺失」，新增 `unpackedFinalLayout()` 与两条回归；`instance.js` 把宿主主包清单与组件根推导收成一份，`normalizeHostBase` 与调用方不再各存名单；`test/env-isolate.mjs` 清掉继承的 `PURGE_UPDATE_REPO` / `PURGE_UPDATE_PROVIDER` / `PURGE_GH_MIRROR`，Windows 上「默认发行源」断言不再被机器级变量污染；新增 `.gitattributes`（`client.js -text`），`core.autocrlf=true` 的检出不再让 `check:client` 误报产物过期。`installed-package` 别名安装（上游 `eac2be2`）连带 prompt 归属改写，单列 1.7.4。[发行说明](docs/releases/1.7.3.md) · [1.7.2 记录](docs/releases/1.7.2.md) · [知识库说明](docs/HACKSKILLS.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md)。
 
 </div>
 

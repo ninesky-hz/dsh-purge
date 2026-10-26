@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.2** · 适配 DSH Desktop **0.2.1-rc.3**（rc.1 / rc.2 同样通过）
+> 当前版本：**1.7.3** · 适配 DSH Desktop **0.2.1-rc.3**（rc.1 / rc.2 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -131,7 +131,7 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.2 |
+| 插件 | `dsh-purge-community` 1.7.3 |
 | 已验证宿主 | DSH Desktop 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
@@ -351,3 +351,11 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - 老预设自愈只加一行（返回值 `repaired: 'hackskills-dir'`），`REDTEAM_PRESET_REFRESH=1` 才会整份覆盖现有预设。
 - 成本：目录摘要约 28 KB/会话，正文按需。禁用方式是从预设删掉那一行（下次自愈会加回来）或整份不加载红队预设；删包内目录没用，会被重新同步。
 - 校验：`node --test test/hackskills.test.mjs`。来源、统计与每条本地改动见 `skills/hackskills/SOURCE.json`，说明见 [知识库说明](docs/HACKSKILLS.md)。
+
+## 1.7.3：换包终态与测试隔离
+
+- 换包成功的终态是 `app.asar` **不存在**（已被改名成 `app.asar.purge-<token>.bak`）、宿主从 `resources/app/` 启动。`status` / `host-status` 里看不到归档，不等于失败；判定走 `unpackedFinalLayout()` 的三条磁盘证据，只读同一个 `<resources>`。搞不清时跑 `host-status` 看 `handoff.phase`，别去删 `.bak` 或重建 `app.asar`。
+- 宿主主包清单只有一份（`lib/instance.js` 的 `HOST_PACKAGES`）。要加新的宿主包信号，改那一处，别在 `desktop.js` 里另起一份。
+- `npm test` 已用 `--import ./test/env-isolate.mjs` 清掉 `PURGE_UPDATE_REPO` / `PURGE_UPDATE_PROVIDER` / `PURGE_GH_MIRROR`。也就是说：本机把更新源指向 Gitee 不再让「默认发行源」断言变红；反过来，要测镜像源行为必须在用例里显式设变量，不能指望继承环境。
+- `client.js` 由 `.gitattributes` 钉成 `-text`。改完面板源码要跑 `npm run check:client`（按字节比 LF），不要手工改行尾去"修"它。
+- 本版没有新增宿主补丁，也没有改锚点；升级后仍要手动「应用」+ 完整退出重开。
