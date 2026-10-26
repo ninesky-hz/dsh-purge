@@ -35,3 +35,7 @@ default-prompt-inject.md
 *.asar.bak
 
 market-dist/
+
+# dsh-main-agent 的循环记账（每轮重写，不是源码）
+.agi/loop-state*.json
+.agi/BRIEF.md

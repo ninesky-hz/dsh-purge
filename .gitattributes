@@ -1,0 +1,6 @@
+# Generated UI bundle. `npm run build:client` emits LF endings and both
+# `npm run check:client` and test/ui-overlay-styles.test.mjs compare it
+# byte-for-byte, so git must never rewrite its line endings on checkout
+# (Windows core.autocrlf=true would otherwise produce a CRLF copy that is
+# reported as stale / non-LF).
+client.js -text
