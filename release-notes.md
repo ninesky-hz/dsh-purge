@@ -1,3 +1,15 @@
+# 1.7.6
+
+修一个会让宿主直接退出的上游 bug：实验性 Inspector 的状态帧预算少算了 state record 的包装字节，插件树变大后发一条消息就可能崩掉整个 DSH。
+
+- **现象**：重启后能正常进，但在任意对话框发一条消息就弹 `The application could not start or stopped unexpectedly`，详情 `dsh: fatal uncaught exception: Error: inspector: source state exceeds the source-frame byte limit`。
+- **根因**：`publishCordisTree` 把 Cordis 树快照裁到 `maxSourceFrameBytes - 4096`（126 976 B），而 `InspectorSourceBuffer.stateFits()` 要求 `json({monotonicMs,topic,payload}) + 4096 <= maxSourceFrameBytes`（131 072 B）；record 比 payload 多约 50 B 包装，快照落在最后 ~50 字节窗口就必抛。异常发生在 Cordis 状态通知的微任务里没人接 → 宿主 exit 1 → shell 弹框。新建会话级 fiber 会触发新一次发布，所以「发消息才崩」且是随机的。
+- **改法（#92 `INSPECTOR_STATE_FRAME_HEADROOM`）**：快照预算 `- 4096` → `- 8192`（给包装留 4 KB）；默认帧预算 `128 * 1024` → `1024 * 1024`（2 048 节点上限的树不再被裁）。
+- **范围**：新增宿主目标键 `inspector`，补丁 `optional: true`（没装实验性 Inspector 的 profile 报「不适用」）；`selfcheck` 新增「Inspector 状态帧不崩宿主」层。
+- **回归**：`test/patch-anchors.test.mjs` 新增三条（锚点与两处改写、只碰目标调用点、旧预算必然溢出/新预算装得下的算术断言）；真实宿主副本应用后 `pending → applied → already`（二次应用字节不变）、`node --check` 通过、`resolveInspectorOptions().maxSourceFrameBytes === 1048576`；`npm test` 419 条 397 pass / 0 fail / 22 skip。
+
+[完整说明](docs/releases/1.7.6.md)
+
 # 1.7.5
 
 第一条写进宿主本体（`dsh-desktop-host`）的补丁：启动途中被 shutdown 时静默退出，不再弹「无法启动」框。

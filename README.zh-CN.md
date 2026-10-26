@@ -4,14 +4,14 @@
 
 **让 AI 更专注地辅助你的学习与动手实验。**
 
-给 DeepSeek Harness 的自托管控件（俗称「破甲」插件）· 80 条宿主补丁 · 25 层状态自检 · 左侧栏整页设置
+给 DeepSeek Harness 的自托管控件（俗称「破甲」插件）· 82 条宿主补丁 · 26 层状态自检 · 左侧栏整页设置
 
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前版本 **1.7.5** · 适配 **DSH Desktop 0.2.1-rc.3**（rc.1 / rc.2 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.6** · 适配 **DSH Desktop 0.2.1-rc.3**（rc.1 / rc.2 同样通过） · [English](docs/README.en.md)
 
-1.7.5 直接补宿主本体：`dsh-desktop-host` 的 `main()` 在 boot 完成后装更新任务控制器时，如果此刻 `ctx` 已经被 dispose（典型是启动途中收到 shutdown），`ctx.effect(...)` 会抛 `CordisError: cannot create effect on inactive context`，宿主发 fatal，Electron 弹出「The application could not start or stopped unexpectedly」。新增补丁 #91 把这两行包进 try/catch：只有 `error.code === "INACTIVE_EFFECT"` 且确实处于 shutdown 流程时，回一条 `shutdown-complete` 后静默 `exit 0`，配合 #83 的 `code=0 不报错`，表现从「弹崩溃框」变成「这次启动自己退掉，再点一次就好」；其余错误照旧抛出，不吞真故障。这是本插件第一次写宿主本体文件（新增目标键 `desktop-host`），`selfcheck` 的「桌面宿主启动兜底」层同步纳入 #91。[发行说明](docs/releases/1.7.5.md) · [1.7.4 记录](docs/releases/1.7.4.md) · [知识库说明](docs/HACKSKILLS.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md)。
+1.7.6 修一个「重启能正常进、但一发消息就弹崩溃框」的宿主 bug：实验性 Inspector 把 Cordis 插件树当 state 发布，快照裁到 `maxSourceFrameBytes - 4096`，而 `InspectorSourceBuffer.setState` 要求 `json({monotonicMs,topic,payload}) + 4096 <= maxSourceFrameBytes` —— record 比 payload 多约 50 字节，快照只要落在最后 ~50 字节窗口里就抛 `inspector: source state exceeds the source-frame byte limit`，宿主 fatal。新增补丁 #92 把包装余量抬到 8192、默认帧预算 128 KiB → 1 MiB，插件树变大后不再崩宿主。[发行说明](docs/releases/1.7.6.md) · [1.7.5 记录](docs/releases/1.7.5.md) · [1.7.4 记录](docs/releases/1.7.4.md) · [知识库说明](docs/HACKSKILLS.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md)。
 
 </div>
 

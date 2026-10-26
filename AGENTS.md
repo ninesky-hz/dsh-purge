@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.5** · 适配 DSH Desktop **0.2.1-rc.3**（rc.1 / rc.2 同样通过）
+> 当前版本：**1.7.6** · 适配 DSH Desktop **0.2.1-rc.3**（rc.1 / rc.2 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -16,7 +16,7 @@
 
 | 层 | 由谁提供 | 生效方式 | 你能怎么查 |
 | --- | --- | --- | --- |
-| **宿主补丁**（80 条） | 本插件写进 DSH 源码 | 点「应用」写入 → **退出重开**才加载 | `selfcheck` 看各层 `applied/required` |
+| **宿主补丁**（82 条） | 本插件写进 DSH 源码 | 点「应用」写入 → **退出重开**才加载 | `selfcheck` 看各层 `applied/required` |
 | **提示词注入** | 插件运行时（每步重贴） | `prompt-inject.md` 作为 `dsh-purge` section | 探针（§4）或看 `selfcheck` 的「运行时提示词注入」 |
 | **破甲强化段** | 插件运行时 | 尾部 section（默认开） | `purge-community boost` |
 | **权限配置** | profile 的 `cordis.patch.yml` | `danger-full-access` + `approval: never` | `selfcheck` 的「当前 profile 的权限选择」 |
@@ -29,7 +29,7 @@
 ```
 安装插件（curl 一行）
    ↓
-点「应用」→ 解包 host / 写 80 条补丁 / 建快照
+点「应用」→ 解包 host / 写 82 条补丁 / 建快照
    ↓
 退出并重开 DSH   ← 补丁只有重启后才被加载
    ↓
@@ -50,7 +50,7 @@ selfcheck 全绿 = 可以开工
 | 命令 | 作用 | 退出码 |
 | --- | --- | --- |
 | `purge-community status` | 宿主路径、补丁计数 | 0 |
-| `purge-community selfcheck [--json\|--text]` | 25 层逐层证据 | **broken → 1**，pending/ok → 0 |
+| `purge-community selfcheck [--json\|--text]` | 26 层逐层证据 | **broken → 1**，pending/ok → 0 |
 | `purge-community host-status` | 只读磁盘布局与当前服务入口证据，不退出/换包/重启 | 0，须检查 state |
 | `purge-community diagnose [--json]` | 锚点漂移诊断（含行号 + 片段） | 0 |
 | `purge-community reanchor list\|show\|apply <id> [--index n] [--lines a-b] [--yes]\|clear <id>` | 半自动重锚：把新锚点钉成本地覆盖 | 0 |
@@ -84,7 +84,7 @@ purge-community probe new
 
 | 症状 | 先跑 | 判读 | 动作 |
 | --- | --- | --- | --- |
-| 补丁数不是 73/76（全量 80） | `selfcheck --json` | 看 `layers[].state` | pending → 点应用；broken → `diagnose` |
+| 补丁数不是 applied/total（全量 82） | `selfcheck --json` | 看 `layers[].state` | pending → 点应用；broken → `diagnose` |
 | 全部 `missing_file` | `status` | `ai_base` 为空 | 宿主未解包：点应用 → 重开 |
 | 模型开始推脱/要求确认 | `probe new` | 回显否 | 回显：调人设/强化段；不回显：检查注入层 |
 | 工具被拒绝执行 | `selfcheck` | 沙箱/审批层是否绿 | 绿 → 属工具自身限制；红 → 点应用 |
@@ -107,7 +107,7 @@ purge-community probe new
 
 **不变量**：`prompt-inject.md`、规则集、其他插件配置，任何时候都不该被「应用」或「回滚」覆盖。
 
-## 7. 补丁表：80 条，怎么读、怎么加
+## 7. 补丁表：82 条，怎么读、怎么加
 
 - 定义在 `lib/core.js` 的 `ALL_PATCHES`（`PATCHES` / `CODE_PATCHES` / `ENGINE_PATCHES` / `NEW_TOOL_PATCHES`）。
 - 每条 = `{id, name, layer, file, replacements:[{pattern, replace}], markers, optional?}`；`pattern` 是对宿主源码的**精确片段**（或正则），`markers` 用来判断"已应用"。
@@ -131,7 +131,7 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.5 |
+| 插件 | `dsh-purge-community` 1.7.6 |
 | 已验证宿主 | DSH Desktop 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
@@ -378,3 +378,14 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - 新增目标键 `desktop-host`（`targetFiles()`），补丁带 `optional: true` + `surfaces: ["desktop"]`；`selfcheck`「桌面宿主启动兜底」层现在是 `[82, 83, 84, 91]`。
 - 这是本插件第一条宿主本体补丁：宿主升级后若 `diagnose` 报 #91 漂移，走 `reanchor`，不要手改 `dsh-desktop-host`。
 - 验证：真实宿主副本应用后 `node --check` 通过、二次应用 `changed=false`；`test/patch-anchors.test.mjs` 有对应回归。
+
+## 1.7.6：实验性 Inspector 状态帧不再崩宿主（#92）
+
+- 新补丁 `INSPECTOR_STATE_FRAME_HEADROOM` 只动 `dsh-experimental-inspector/lib/index.js` 两处：快照预算 `maxSourceFrameBytes - 4096` → `- 8192`；`DEFAULT_MAX_SOURCE_FRAME_BYTES` `128 * 1024` → `1024 * 1024`。
+- 上游算术：`publishCordisTree` 把 Cordis 树裁到 `maxSourceFrameBytes - 4096`（126 976 B），而 `InspectorSourceBuffer.stateFits()` 量的是 `json({monotonicMs,topic,payload}) + 4096 <= maxSourceFrameBytes`（131 072 B）。record 比 payload 多约 50 B，快照落在最后 ~50 字节窗口就抛 `inspector: source state exceeds the source-frame byte limit`；异常发生在状态通知的微任务里没人接 → 宿主 exit 1 → shell 弹「无法启动或已意外停止」。
+- 触发条件：插件树压到裁剪上限（bundle 与会话越多越容易）；新建会话级 fiber 会重发一次树，所以表现是「重启能进、发消息随机崩」。
+- 新增目标键 `inspector`（`targetFiles()`），补丁 `optional: true`：没装实验性 Inspector 的 profile 报「不适用」，不参与失败判定；`selfcheck` 新增「Inspector 状态帧不崩宿主」层（`[92]`），层数 25 → 26。
+- profile 侧等价做法：在 `cordis.patch.yml` 给 `experimental-inspector` 加 `config.maxSourceFrameBytes: 1048576`。该层 `config` 是**整段替换**不是深合并，`captureFetch` 要一起写。
+- 宿主升级后若 `diagnose` 报 #92 漂移，走 `reanchor`，不要手改 `dsh-experimental-inspector`。
+- 验证：真实宿主副本应用后 `pending → applied → already`、`node --check` 通过、`resolveInspectorOptions().maxSourceFrameBytes === 1048576`；`test/patch-anchors.test.mjs` 三条回归（含「旧预算必然溢出 / 新预算装得下」的算术断言）。
+

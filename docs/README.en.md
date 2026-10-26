@@ -4,11 +4,11 @@
 
 **Helping your AI assistant stay focused on your learning and hands-on work.**
 
-A self-hosted add-on for DeepSeek Harness (known in the community as a 破甲 / "jailbreak" plugin) · 80 host patches · 25 status layers
+A self-hosted add-on for DeepSeek Harness (known in the community as a 破甲 / "jailbreak" plugin) · 82 host patches · 26 status layers
 
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 
-Current version 1.7.5 · targets **DSH Desktop 0.2.1-rc.3** (rc.1 / rc.2 also pass)
+Current version 1.7.6 · targets **DSH Desktop 0.2.1-rc.3** (rc.1 / rc.2 also pass)
 
 Bundled knowledge library: 101 pentest skills in `skills/hackskills` — see [Bundled knowledge library](HACKSKILLS.md).
 

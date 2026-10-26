@@ -82,3 +82,53 @@ test("0.2.1 ask_user_question keeps the requested wait and caps only -1", () => 
   assert.ok(!out.text.includes("const timeout = 1;"));
   assert.equal(applyReplacementsToText(out.text, patch(89)).changed, false);
 });
+
+// 1.7.6 / #92 — 试验性 Inspector 的状态帧预算：快照压线就抛错，宿主 fatal。
+const INSPECTOR_TREE_PUBLISH =
+  "\t\t\tdisposers.push(publishCordisTree(ctx, handle.source, {\n" +
+  "\t\t\t\tmaxNodes: spec.maxCordisNodes,\n" +
+  "\t\t\t\tmaxBytes: spec.maxSourceFrameBytes - 4096\n" +
+  "\t\t\t}));\n";
+
+const INSPECTOR_FRAME_DEFAULT = "const DEFAULT_MAX_SOURCE_FRAME_BYTES = 128 * 1024;";
+
+test("1.7.6 inspector: the Cordis tree snapshot keeps state-record headroom (#92)", () => {
+  const source = INSPECTOR_TREE_PUBLISH + INSPECTOR_FRAME_DEFAULT + "\n";
+  const out = applyReplacementsToText(source, patch(92));
+  assert.equal(out.changed, true);
+  // 快照预算留出 record 包装余量
+  assert.ok(out.text.includes("maxBytes: spec.maxSourceFrameBytes - 8192"));
+  assert.ok(!out.text.includes("maxBytes: spec.maxSourceFrameBytes - 4096"));
+  // 默认帧预算抬到 1 MiB：2048 节点的树不再被裁
+  assert.ok(out.text.includes("const DEFAULT_MAX_SOURCE_FRAME_BYTES = 1024 * 1024;"));
+  assert.ok(!out.text.includes("DEFAULT_MAX_SOURCE_FRAME_BYTES = 128 * 1024"));
+  assert.ok(out.text.includes("[dsh-purge] #92"));
+  // 幂等：已打过就不再改
+  assert.equal(applyReplacementsToText(out.text, patch(92)).changed, false);
+});
+
+test("1.7.6 inspector: only the inspector call site is touched, other - 4096 budgets survive", () => {
+  const unrelated = "\t\t\tconst budget = spec.maxSourceFrameBytes - 4096;\n";
+  const out = applyReplacementsToText(unrelated, patch(92));
+  assert.equal(out.changed, false);
+  assert.equal(out.text, unrelated);
+});
+
+test("1.7.6 inspector: #92 margin satisfies InspectorSourceBuffer.setState arithmetic", () => {
+  // 与 @deepseek-ai/dsh-experimental-inspector 一致：
+  //   stateFits() => json([{monotonicMs,topic,payload}]) + 4096 <= maxSourceFrameBytes
+  // 而采集器只按 maxSourceFrameBytes - margin 裁剪快照。record 比 payload 多几十字节，
+  // 所以 margin 必须大于这段包装，否则快照压在上限附近时 setState 必抛。
+  const jsonBytes = (value) => Buffer.byteLength(JSON.stringify(value), "utf8");
+  const frame = 128 * 1024;
+  const overhead = 4096;
+  const wrapper = jsonBytes({ monotonicMs: 1234.5, topic: "cordis/tree", payload: {} }) - jsonBytes({});
+  assert.ok(wrapper > 32, `state record wrapper costs ${wrapper} bytes`);
+  // 旧预算：快照正好裁到 frame - overhead，加上包装就超了 → 抛 source state exceeds ...
+  const oldBudget = frame - 4096;
+  assert.ok(oldBudget + wrapper + overhead > frame);
+  // 新预算：同样的落差下仍然装得下
+  const newBudget = frame - 8192;
+  assert.ok(newBudget + wrapper + overhead <= frame);
+});
+
