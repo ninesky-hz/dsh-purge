@@ -152,6 +152,43 @@ test("no host layout still blocks writes with a clear message", () => {
     fs.rmSync(empty, { recursive: true, force: true });
   }
 });
+test("sealed archive host reports the archive version instead of no-host", () => {
+  // 桌面宿主还在 app.asar 里：磁盘上没有 resources/app，但归档里能读到组件版本。
+  // 这时报「未定位宿主」是错的（面板会显示 DSH unknown），应当报 archive 入口。
+  const resources = path.join(path.sep, "tmp-app", "resources");
+  const diskBase = path.join(resources, "app", "dsh", "node_modules", "@deepseek-ai");
+  const archiveBase = path.join(resources, "app.asar", "dsh", "node_modules", "@deepseek-ai");
+  const files = new Map(
+    ["dsh-agent-loop", "dsh-system-prompt"].map((pkg) => [
+      path.join(archiveBase, pkg, "package.json"),
+      JSON.stringify({ version: "0.2.1-rc.5" }),
+    ]),
+  );
+  const enoent = () => {
+    const error = new Error("ENOENT");
+    error.code = "ENOENT";
+    return error;
+  };
+  const reader = {
+    realpathSync: (file) => file,
+    readFileSync: (file) => {
+      if (files.has(file)) return files.get(file);
+      throw enoent();
+    },
+    statSync: (file) => {
+      if (files.has(file)) return { isDirectory: () => false, isFile: () => true };
+      throw enoent();
+    },
+  };
+  const report = compatibility(diskBase, reader);
+  assert.equal(report.source, "archive");
+  assert.equal(report.host_version, "0.2.1-rc.5");
+  assert.equal(report.level, "archive");
+  assert.equal(report.qualified, true, "版本本身在已回归清单里");
+  assert.equal(report.patch_writes_allowed, false, "归档入口不可写，仍需先解包");
+  assert.match(report.message, /归档/);
+  assert.throws(() => requirePatchCompatibility(diskBase, reader), /归档/);
+});
 test("backup retention keeps the newest snapshots and reports disk usage", async () => {
   const f = setup();
   try {

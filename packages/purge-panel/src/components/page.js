@@ -68,9 +68,11 @@ function StatusStrip({ info }) {
             ? "未验证版本"
             : level === "mixed"
               ? "组件版本不一致"
-              : level
-                ? "未定位宿主"
-                : "检测中",
+              : level === "archive"
+                ? "归档入口 · 尚未解包"
+                : level
+                  ? "未定位宿主"
+                  : "检测中",
       ),
       h(
         HelpTip,

@@ -8983,6 +8983,7 @@ var zh = {
   "compat.level.qualified": "\u5DF2\u56DE\u5F52\u9A8C\u8BC1",
   "compat.level.unverified": "\u672A\u9A8C\u8BC1\u7248\u672C",
   "compat.level.mixed": "\u7EC4\u4EF6\u7248\u672C\u4E0D\u4E00\u81F4",
+  "compat.level.archive": "\u5F52\u6863\u5165\u53E3 \xB7 \u5C1A\u672A\u89E3\u5305",
   "compat.level.no-host": "\u672A\u5B9A\u4F4D\u5BBF\u4E3B",
   "compat.level.unknown": "\u672A\u77E5",
   "theme.aria": "\u5916\u89C2",
@@ -9334,6 +9335,7 @@ var en = {
   "compat.level.qualified": "regression verified",
   "compat.level.unverified": "unverified version",
   "compat.level.mixed": "mixed component versions",
+  "compat.level.archive": "archive entry \xB7 not unpacked",
   "compat.level.no-host": "host not located",
   "compat.level.unknown": "unknown",
   "theme.aria": "Appearance",
@@ -13024,7 +13026,7 @@ function StatusStrip({ info }) {
       h(
         "b",
         null,
-        level === "qualified" ? "\u5DF2\u56DE\u5F52\u9A8C\u8BC1" : level === "unverified" ? "\u672A\u9A8C\u8BC1\u7248\u672C" : level === "mixed" ? "\u7EC4\u4EF6\u7248\u672C\u4E0D\u4E00\u81F4" : level ? "\u672A\u5B9A\u4F4D\u5BBF\u4E3B" : "\u68C0\u6D4B\u4E2D"
+        level === "qualified" ? "\u5DF2\u56DE\u5F52\u9A8C\u8BC1" : level === "unverified" ? "\u672A\u9A8C\u8BC1\u7248\u672C" : level === "mixed" ? "\u7EC4\u4EF6\u7248\u672C\u4E0D\u4E00\u81F4" : level === "archive" ? "\u5F52\u6863\u5165\u53E3 \xB7 \u5C1A\u672A\u89E3\u5305" : level ? "\u672A\u5B9A\u4F4D\u5BBF\u4E3B" : "\u68C0\u6D4B\u4E2D"
       ),
       h(
         HelpTip,
