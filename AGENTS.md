@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.6** · 适配 DSH Desktop **0.2.1-rc.3**（rc.1 / rc.2 同样通过）
+> 当前版本：**1.7.7** · 适配 DSH Desktop **0.2.1-rc.5**（rc.1 / rc.2 / rc.3 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -131,8 +131,8 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.6 |
-| 已验证宿主 | DSH Desktop 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 |
+| 插件 | `dsh-purge-community` 1.7.7 |
+| 已验证宿主 | DSH Desktop 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
 
@@ -388,4 +388,15 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - profile 侧等价做法：在 `cordis.patch.yml` 给 `experimental-inspector` 加 `config.maxSourceFrameBytes: 1048576`。该层 `config` 是**整段替换**不是深合并，`captureFetch` 要一起写。
 - 宿主升级后若 `diagnose` 报 #92 漂移，走 `reanchor`，不要手改 `dsh-experimental-inspector`。
 - 验证：真实宿主副本应用后 `pending → applied → already`、`node --check` 通过、`resolveInspectorOptions().maxSourceFrameBytes === 1048576`；`test/patch-anchors.test.mjs` 三条回归（含「旧预算必然溢出 / 新预算装得下」的算术断言）。
+
+## 1.7.7：适配 DSH Desktop 0.2.1-rc.5
+
+- 宿主基线：rc.5（build `d4db512a`）把 `@deepseek-ai/*` 全部升到 0.2.1-rc.5。本版在 rc.5 原始 `app.asar` 上逐条核对 82 条补丁：**0 锚点漂移**；副本上真实「应用」两遍：可应用项全部落地、49 个 JS 目标 0 语法错误、二次应用全 `already`。
+- #62 `OFFICIAL_TOOL_ASK_FAILOPEN`：rc.5 的入口 bundle `dsh-tools/lib/index.js` 把 `undefined` 写成 `void 0`、switch 深一层，还新增了 `exec.agent === void 0` 的 deny 分支。新增三条 bundle 变体（`approval === void 0`、`exec.agent === void 0`、更深缩进的 `case "unavailable"`）：只放行「没有审批通道」，`rejected` / `cancelled` 仍然 deny。`lib/types/index.js` 的旧锚点保留（老宿主照旧）。
+- #26 `MINIMAL_PERSONA_PURGE`：rc.5 的 `minimal.patch.yml` 在 persona 与 persistent-shell 之间插入了 `tool-fs` 行。新增两条变体，把 `agent-instructions` 插到 persona 之后、`tool-fs` 之前，`complete: false` 与去身份照旧。
+- #57 `DEEPSEEK_SYSTEM_ROLE`：rc.5 的 responses 通路变量名回到 `instructionRole`（`compat?.supportsDeveloperRole !== false`）。新增一条白名单变体，responses 路径也回退 `system`。
+- `QUALIFIED_HOST_VERSIONS` 增加 `0.2.1-rc.5`；面板/CLI 不再把 rc.5 标「未验证」。rc.4 未实测，不加入。
+- rc.5 不再随包发 `dsh-client-runtime` / `dsh-client-ui-slots`（`slots` 服务改由 `dsh-client-ui-renderer` 提供）；`package.json` 的 `dsh.client.inject` 为兼容老宿主仍保留旧名，client-modules 对不存在的依赖行会跳过。面板用到的 `slots` / `locale` / `sessions` / `conversation` / `uiWorkspace` 服务与 4 个 slot 名在 rc.5 均存在。
+- rc.5 的 `@deepseek-ai` 包里找不到 `desktopRuntime` / `desktopActions` 服务，优雅重启会回退到 helper 路径；1.7.4 起桌面解包后本来只写盘不自动重启，影响低。
+- 验证：`test/patch-anchors.test.mjs` 新增 #62（含 agent-less 分支与 rejected 不误放）、#26（tool-fs 结构）、#57（responses）三条 rc.5 回归；`npm test` 全绿。真实宿主仍要「应用」+ 完全退出重开才加载补丁，磁盘状态不代表进程已加载。
 

@@ -132,3 +132,97 @@ test("1.7.6 inspector: #92 margin satisfies InspectorSourceBuffer.setState arith
   assert.ok(newBudget + wrapper + overhead <= frame);
 });
 
+// 1.7.7 / 0.2.1-rc.5 — dsh-tools 入口 bundle 用 void 0、switch 更深一层，并新增 agent-less 分支。
+const RC5_ASK_SOURCE = [
+  "\tasync serviceAsk(exec, ask) {",
+  '\t\tconst approval = this.ctx.get("approval");',
+  "\t\tif (approval === void 0) return {",
+  "\t\t\tdecision: {",
+  '\t\t\t\tkind: "deny",',
+  '\t\t\t\treason: ask.reason ?? `tool "${exec.name}" requires approval (not yet supported)`',
+  "\t\t\t},",
+  "\t\t\tapprovalCancelled: false",
+  "\t\t};",
+  "\t\tif (exec.agent === void 0) return {",
+  "\t\t\tdecision: {",
+  '\t\t\t\tkind: "deny",',
+  '\t\t\t\treason: `tool "${exec.name}" requires approval, but the call has no agent to route it through`',
+  "\t\t\t},",
+  "\t\t\tapprovalCancelled: false",
+  "\t\t};",
+  "\t\tconst outcome = await approval.request({});",
+  "\t\tswitch (outcome) {",
+  '\t\t\tcase "unavailable": return {',
+  "\t\t\t\tdecision: {",
+  '\t\t\t\t\tkind: "deny",',
+  '\t\t\t\t\treason: `tool "${exec.name}" requires approval, but no approval channel is available`',
+  "\t\t\t\t},",
+  "\t\t\t\tapprovalCancelled: false",
+  "\t\t\t};",
+  '\t\t\tcase "rejected": return { decision: { kind: "deny" }, approvalCancelled: false };',
+  "\t\t}",
+  "\t}",
+].join("\n");
+
+test("1.7.7 rc.5: #62 covers the bundled entry and the new agent-less branch", () => {
+  const out = applyReplacementsToText(RC5_ASK_SOURCE, patch(62));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("[dsh-purge] no approval service → allow"));
+  assert.ok(out.text.includes("[dsh-purge] no agent to route → allow"));
+  assert.ok(out.text.includes("[dsh-purge] unavailable channel → allow"));
+  assert.ok(!out.text.includes("requires approval (not yet supported)"));
+  assert.ok(!out.text.includes("the call has no agent to route it through"));
+  assert.ok(!out.text.includes("no approval channel is available"));
+  // 用户明确拒绝仍然是 deny：只给"没有通道"放行。
+  assert.ok(out.text.includes('case "rejected": return { decision: { kind: "deny" }'));
+  // 幂等：markersAny 命中后不再改写。
+  assert.equal(applyReplacementsToText(out.text, patch(62)).changed, false);
+});
+
+// 1.7.7 / 0.2.1-rc.5 — 官方 minimal 预设把 tool-fs 插到了 persona 与 persistent-shell 之间。
+const RC5_MINIMAL_SOURCE = [
+  "          - id: persona",
+  "            name: '@deepseek-ai/dsh-persona'",
+  "            config:",
+  "              prefix: You are a helpful software engineer assistant.",
+  "              complete: true",
+  "              includeRuntimeContext: false",
+  "          - id: tool-fs",
+  "            name: '@deepseek-ai/dsh-tool-fs'",
+  "            config:",
+  "              read: false",
+  "              readImage: true",
+  "              write: false",
+  "              edit: false",
+  "",
+].join("\n");
+
+test("1.7.7 rc.5: #26 keeps agent-instructions when rc.5 inserts tool-fs", () => {
+  const out = applyReplacementsToText(RC5_MINIMAL_SOURCE, patch(26));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes('prefix: ""'));
+  assert.ok(out.text.includes("complete: false # [dsh-purge] minimal keeps operator once"));
+  assert.ok(out.text.includes("          - id: agent-instructions\n"));
+  assert.ok(out.text.includes("          - id: tool-fs"));
+  assert.ok(!out.text.includes("complete: true"));
+  // 幂等：markersAny 命中后不再改写。
+  assert.equal(applyReplacementsToText(out.text, patch(26)).changed, false);
+});
+
+// 1.7.7 / 0.2.1-rc.5 — responses 通路变量名改回 instructionRole。
+const RC5_RESPONSES_SOURCE =
+  "    const compat = model.compat;\n" +
+  '    const instructionRole = model.reasoning && compat?.supportsDeveloperRole !== false ? "developer" : "system";\n' +
+  "    let msgIndex = 0;\n";
+
+test("1.7.7 rc.5: #57 keeps the developer-role allowlist on the responses path", () => {
+  const out = applyReplacementsToText(RC5_RESPONSES_SOURCE, patch(57));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes('includes("api.openai.com")'));
+  assert.ok(out.text.includes('includes("azure.com")'));
+  assert.ok(out.text.includes("[dsh-purge] developer role allowlist: openai/azure"));
+  // 非官方网关仍回退 system：白名单不是泛放开。
+  assert.ok(out.text.includes('? "developer" : "system"'));
+  assert.equal(applyReplacementsToText(out.text, patch(57)).changed, false);
+});
+

@@ -10,6 +10,7 @@ import {
   requirePatchCompatibility,
   download,
   PACKAGE,
+  QUALIFIED_HOST_VERSIONS,
 } from "../lib/community.js";
 import { atomicCopyFileSync } from "../lib/core.js";
 import { filterDirs } from "../lib/update-install.js";
@@ -116,6 +117,25 @@ test("compatibility reports instead of disabling: 0.2.1 qualified, unknown versi
     assert.equal(unknown.level, "unverified");
     assert.equal(unknown.patch_writes_allowed, true);
     assert.doesNotThrow(() => requirePatchCompatibility(f.aiBase));
+  } finally {
+    f.close();
+  }
+});
+
+test("0.2.1-rc.5 is a qualified host (1.7.7)", () => {
+  assert.ok(QUALIFIED_HOST_VERSIONS.includes("0.2.1-rc.5"));
+  const f = setup();
+  try {
+    for (const pkg of ["dsh-agent-loop", "dsh-system-prompt"])
+      fs.writeFileSync(
+        path.join(f.aiBase, pkg, "package.json"),
+        JSON.stringify({ version: "0.2.1-rc.5" }),
+      );
+    const report = compatibility(f.aiBase);
+    assert.equal(report.host_version, "0.2.1-rc.5");
+    assert.equal(report.qualified, true);
+    assert.equal(report.level, "qualified");
+    assert.equal(report.patch_writes_allowed, true);
   } finally {
     f.close();
   }

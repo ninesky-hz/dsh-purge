@@ -1,3 +1,16 @@
+# 1.7.7
+
+适配 DSH Desktop 0.2.1-rc.5：在 rc.5 原始宿主源码上逐条核对 82 条补丁，0 条锚点漂移；补齐三处因上游重排而失效的 rc.5 变体，副本上真实「应用」两遍全部收敛、0 语法错误、二次应用全 `already`。
+
+- **#62 `OFFICIAL_TOOL_ASK_FAILOPEN`**：rc.5 的 `dsh-tools/lib/index.js` 入口 bundle 把 `undefined` 写成 `void 0`、switch 深一层，并新增 `exec.agent === void 0` 的 deny 分支；旧锚点只在 `lib/types/index.js`（编译残留）命中。新增三条 bundle 变体，只放行「没有审批通道」，`rejected` / `cancelled` 仍 deny。
+- **#26 `MINIMAL_PERSONA_PURGE`**：rc.5 的 `minimal.patch.yml` 在 persona 与 persistent-shell 之间插入 `tool-fs`。新增两条变体，把 `agent-instructions` 插到 `tool-fs` 之前（minimal 预设照旧加载 workspace `AGENTS.md`）。
+- **#57 `DEEPSEEK_SYSTEM_ROLE`**：rc.5 的 responses 通路变量名回到 `instructionRole`（`compat?.supportsDeveloperRole !== false`），新增白名单变体，responses 路径也回退 `system`。
+- **诊断**：#46 / #84 标记 `chainedAfter`（依赖 #45 / #83），全新 rc.5 宿主上不再误报「可选锚点漂移」。
+- **范围**：`QUALIFIED_HOST_VERSIONS` 增加 `0.2.1-rc.5`（rc.4 未实测，不加入）；`package.json` 的 `dshTarget` 更新；补丁总数仍 82 条。
+- **回归**：`test/patch-anchors.test.mjs` 新增三条 rc.5 真实片段（#62 含 agent-less 与 rejected 不误放、#26 的 tool-fs 结构、#57 responses）；真实 rc.5 `app.asar` 解包副本端到端应用 0 漂移、0 语法错误、二次应用 0 变更；`npm test` 423 条 401 pass / 0 fail / 22 skip。
+
+[完整说明](docs/releases/1.7.7.md)
+
 # 1.7.6
 
 修一个会让宿主直接退出的上游 bug：实验性 Inspector 的状态帧预算少算了 state record 的包装字节，插件树变大后发一条消息就可能崩掉整个 DSH。

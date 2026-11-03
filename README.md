@@ -9,9 +9,9 @@
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前版本 **1.7.6** · 适配 **DSH Desktop 0.2.1-rc.3**（rc.1 / rc.2 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.7** · 适配 **DSH Desktop 0.2.1-rc.5**（rc.1 / rc.2 / rc.3 同样通过） · [English](docs/README.en.md)
 
-1.7.6 修一个「重启能正常进、但一发消息就弹崩溃框」的宿主 bug：实验性 Inspector 把 Cordis 插件树当 state 发布，快照裁到 `maxSourceFrameBytes - 4096`，而 `InspectorSourceBuffer.setState` 要求 `json({monotonicMs,topic,payload}) + 4096 <= maxSourceFrameBytes` —— record 比 payload 多约 50 字节，快照只要落在最后 ~50 字节窗口里就抛 `inspector: source state exceeds the source-frame byte limit`，宿主 fatal。新增补丁 #92 把包装余量抬到 8192、默认帧预算 128 KiB → 1 MiB，插件树变大后不再崩宿主。[发行说明](docs/releases/1.7.6.md) · [1.7.5 记录](docs/releases/1.7.5.md) · [1.7.4 记录](docs/releases/1.7.4.md) · [知识库说明](docs/HACKSKILLS.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md)。
+1.7.7 适配 DSH Desktop 0.2.1-rc.5：82 条补丁在 rc.5 原始宿主源码上逐条核对，0 条锚点漂移；补齐三处 rc.5 变体——#62（dsh-tools 入口 bundle 改用 `void 0` 并新增 agent-less 分支）、#26（官方 minimal 预设插入了 tool-fs 行）、#57（responses 通路变量名回到 `instructionRole`）。rc.5 列入已验证宿主。[发行说明](docs/releases/1.7.7.md) · [1.7.6 记录](docs/releases/1.7.6.md) · [1.7.5 记录](docs/releases/1.7.5.md) · [1.7.4 记录](docs/releases/1.7.4.md) · [知识库说明](docs/HACKSKILLS.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md)。
 
 </div>
 
@@ -143,8 +143,8 @@ powershell -ExecutionPolicy Bypass -File $env:TEMP\purge-install.ps1
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.6.47 |
-| 已验证宿主 | DSH Desktop 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 |
+| 插件 | `dsh-purge-community` 1.7.7 |
+| 已验证宿主 | DSH Desktop 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许安装，自检会标「未验证」；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
 
