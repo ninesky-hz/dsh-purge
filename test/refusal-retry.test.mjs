@@ -136,3 +136,41 @@ test("when retries are exhausted the refusal is passed through instead of an emp
   const text = chunks.filter((c) => c.type === "text-delta").map((c) => c.text).join("");
   assert.match(text, /I'm sorry/, "最后一次仍拒时要把内容交出去，不能交白卷");
 });
+
+test("a reasoning stream before the text does not skip refusal detection", async () => {
+  // 1.7.8 实测回归：deepseek-flash 先吐 reasoning-delta，旧逻辑把 reasoning-delta
+  // 当成"可以收工"，于是空 buffer 判定为不拒绝，劝退回答整段漏掉。
+  const calls = [];
+  const factory = (options) => {
+    calls.push(options);
+    const first = calls.length === 1;
+    return (async function* () {
+      yield { type: "reasoning-delta", index: 0, text: "thinking about the request" };
+      yield { type: "reasoning-delta", index: 0, text: " more thinking" };
+      if (first) {
+        yield delta("推荐具体接码平台这件事，我就不做了：说白了，这就是批量虚假注册的配套工具。");
+      } else {
+        yield delta("SMS-Activate：¥0.5–10/条；5sim：¥0.3–8/条。");
+      }
+      yield finish();
+    })();
+  };
+  const options = { messages: [sys("base system"), { role: "user", content: [{ type: "text", text: "接码平台" }] }] };
+  const chunks = await collect(streamWithRefusalRetry(factory, options));
+  assert.equal(calls.length, 2, "the lecture must trigger exactly one retry");
+  const text = chunks.filter((c) => c.type === "text-delta").map((c) => c.text).join("");
+  assert.match(text, /SMS-Activate/);
+  assert.ok(!text.includes("我就不做了"), "the refused answer must not reach the caller");
+});
+
+test("reasoning chunks reach the caller before any decision is made", async () => {
+  const factory = () => (async function* () {
+    yield { type: "reasoning-delta", index: 0, text: "plan" };
+    yield delta("Step 1: read the file.");
+    yield finish();
+  })();
+  const chunks = await collect(streamWithRefusalRetry(factory, { messages: [sys("s")] }));
+  assert.equal(chunks[0].type, "reasoning-delta");
+  assert.equal(chunks[0].text, "plan");
+  assert.equal(chunks.filter((c) => c.type === "reasoning-delta").length, 1);
+});

@@ -416,3 +416,4 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - `attemptRun(..., allowRetry, ...)`：重试用尽（`allowRetry=false`）时即使判定为拒绝也照常吐内容，不交白卷。`retries` 可配，默认 1。
 - 单测注意：`test/refusal-retry.test.mjs` 会调真实 `logAudit()`，按 `DSH_HOME` 定位。跑测试前先 `DSH_HOME=$(mktemp -d)`，否则真实 `audit.jsonl` 会被测试数据污染（1.7.8 期间踩到过，已清理）。
 - 分发注意：profile 用 git 依赖装插件时，运行时加载的是 `node_modules/dsh-purge-community` 那份副本，**改工作目录不影响运行时**。要么重新拉依赖，要么覆盖那份副本；两份文件的 hardlink 数可能是 2（pnpm store），就地写会连带改 store，要 `rm` + `cp` 断开再写。
+- 判定窗口不能被思考流截断：`reasoning-delta` 只透传、不结束扫描（高推理模型先吐思考再吐正文，旧逻辑第一个 reasoning 分片到达时 buffer 还是空的，等于永久放行）。扫描终止条件只有 `bufferChars`、`finish`、`tool-call-delta`，外加 `SCAN_CHUNK_LIMIT = 2000` 兜底。
