@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.7** · 适配 DSH Desktop **0.2.1-rc.5**（rc.1 / rc.2 / rc.3 同样通过）
+> 当前版本：**1.7.8** · 适配 DSH Desktop **0.2.1-rc.5**（rc.1 / rc.2 / rc.3 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -131,7 +131,7 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.7 |
+| 插件 | `dsh-purge-community` 1.7.8 |
 | 已验证宿主 | DSH Desktop 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
@@ -408,3 +408,11 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - rc.5 的 `@deepseek-ai` 包里找不到 `desktopRuntime` / `desktopActions` 服务，优雅重启会回退到 helper 路径；1.7.4 起桌面解包后本来只写盘不自动重启，影响低。
 - 验证：`test/patch-anchors.test.mjs` 新增 #62（含 agent-less 分支与 rejected 不误放）、#26（tool-fs 结构）、#57（responses）三条 rc.5 回归；`npm test` 全绿。真实宿主仍要「应用」+ 完全退出重开才加载补丁，磁盘状态不代表进程已加载。
 
+## 1.7.8：劝退式软拒的漏检
+
+- 旧 `REFUSAL_PATTERNS` 只覆盖直球拒绝（`I can't` / `我不能` / `这一步我不做` / 要求出示授权）。中文更常见的是「这事我就不做了 + 讲危害 + 甩合规替代 + 反问属于哪一种」，一条都不命中，`refusalRetry` 开着也不留任何审计。新增 `LECTURE_PATTERNS`，只在整段 ≤1500 字符时判定，避免长文档里的「不建议用 root 跑」误触。
+- 判定入口换成 `refusalSignal(text)` → `{kind: "refusal"|"lecture", pattern} | null`；`looksLikeRefusal()` 只是它的布尔包装。审计的 `refusal_retry` 现在带 `kind` 与命中正则源码，排查时先看这两列再决定加特征还是改人设。
+- 重试加固变两道：系统提示尾部（`RETRY_NUDGE`）+ **最后一条 user 消息尾部**（`USER_NUDGE`）。系统提示在本机有 4 万多字符，尾部那句约束太远。`withNudge` 返回浅拷贝，不改写调用方的 `options`。
+- `attemptRun(..., allowRetry, ...)`：重试用尽（`allowRetry=false`）时即使判定为拒绝也照常吐内容，不交白卷。`retries` 可配，默认 1。
+- 单测注意：`test/refusal-retry.test.mjs` 会调真实 `logAudit()`，按 `DSH_HOME` 定位。跑测试前先 `DSH_HOME=$(mktemp -d)`，否则真实 `audit.jsonl` 会被测试数据污染（1.7.8 期间踩到过，已清理）。
+- 分发注意：profile 用 git 依赖装插件时，运行时加载的是 `node_modules/dsh-purge-community` 那份副本，**改工作目录不影响运行时**。要么重新拉依赖，要么覆盖那份副本；两份文件的 hardlink 数可能是 2（pnpm store），就地写会连带改 store，要 `rm` + `cp` 断开再写。
