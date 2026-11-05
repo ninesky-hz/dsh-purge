@@ -16,7 +16,9 @@ const GATE_FINGERPRINTS = {
   11: "f732bb54043fe3f6",
   12: "e7e94c2c5d5d6e0f",
   13: "eac61898ab7bddde",
-  14: "8a7c12ba2de85245",
+  // 1.7.9 / 0.2.2-rc.1：宿主把 displayReason 改成 escalationDisplayReason(...) 调用，
+  // 并新增 agent-less 的 throw；#14 因此多一条变体（放行条件不变，仍要求 approver 与 agent 都在）。
+  14: "144ca87f8718400b",
   15: "68bd19d2e61b65bb",
   16: "9698a6c3b4e9e7ba",
   17: "975df12b54173ecb",
@@ -30,7 +32,9 @@ const GATE_FINGERPRINTS = {
   61: "c17dcb85eded7e36",
   63: "b92dd05efb4ba817",
   66: "a97a223234457fee",
-  67: "8cfd0fd1a4e97f0a",
+  // 1.7.9 / 0.2.2-rc.1：这两行被套进 step 内的 try，缩进变成 5 个 tab；#67 多一条变体，
+  // 守卫语义不变（undefined messages 不再让 while 循环抛 TypeError）。
+  67: "50825df35882c78a",
   68: "2590e742617f1242",
 };
 

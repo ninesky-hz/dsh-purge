@@ -1,3 +1,21 @@
+# 1.7.9
+
+适配 DSH 0.2.2-rc.1：宿主这一版动了 9 个补丁落点，其中 4 条是「闸门」（沙箱提权、完整提示词重写后保留注入、agent-loop 消息守卫、每步装配）——不修的话插件能装能加载，但提权免审批、整份重写提示词后仍带甲、每步重注入会静默失效。
+
+- **锚点**：在真机 `0.2.2-rc.1` 的 `app.asar` 上逐条核对 82 条，**drifted=0 / optionalDrift=0 / missing=0**（旧版对 rc.1 是 4 条必需 + 5 条可选漂移）。
+- **#14**：`displayReason` 改成 `escalationDisplayReason(mode, justification)` 调用，并新增 `approver` / `agent` 缺失就抛错的分支。新变体保留「两者都在才走审批，否则 `allowed-once`」，`rejected` / `cancelled` 仍然拒绝。
+- **#40**：rc.1 的 `assemble` 返回值多了 `tools`，早退分支也改了形态。新常量 `COMPLETE_PROMPT_WATERFALL_INJECT_RC1` 两条 return 都原样带 `tools`，只把 `sections` 换成 `[completeSection, ...dshPurgeSections]`。
+- **#67**：两条 messages 守卫被套进 step 内的 `try`，缩进 4→5 个 tab，新增同语义变体。
+- **#74**：rc.1 改成 claim → 固定本步模型/工具集 → 再进 try 里 assemble；新变体把 `__dshPurgePrepareAssemble` 插在 claim 与 `model.current()` 之间。
+- **#62**：ask 逻辑搬进 `dsh-tools/lib/pipeline.js`（`void 0` 风格）与 `lib/types/pipeline.js`（4 空格 + `undefined`），两处都有新的 agent-less 分支；补 2 条变体，`rejected` 仍是 deny。
+- **#60 / #54**：run_code 加宽文案搬到 `dsh-tool-executor-ptc`，交付物提示词搬到 `dsh-deliverable-file-references`；`targetFiles()` 相应新增 5 个目标键。
+- **#82**：`main.js` 的 import 后面换成 mime 的 region 注释，旧锚点失配；新变体只锚 import 行本身。
+- **#91**：`const { ctx } = await application;` 与两行 control 之间多了 `installOperationDiagnostics(...)`；新变体只锚那两行赋值，静默退出条件不变。
+- **白名单 / 契约**：`QUALIFIED_HOST_VERSIONS` 加入 `0.2.2-rc.1`；`test/bypass-contract.test.mjs` 更新 #14 / #67 两条指纹（闸门语义未变，只是多了 rc.1 变体）。
+- **实测**：rc.1 解包副本上真打两遍——`applied 65 / already 9 / skipped 1(#80) / missing_file 7`（后者都是 profile 用户级目标），**40 个被改 `.js` 全部 `node --check` 通过**，二次应用全 `already`；rc.5 真机回归 `drifted=0 / applied 71` 没有回退。
+
+**升级后仍要手动「应用」+ 完整退出重开**：磁盘补丁不代表当前进程已加载。rc.1 把最低 Node 提到 24.9、Cordis Core 升到 4.1.0，桌面版自带运行时不受影响，系统 `node` 跑 CLI 的环境需要自行升级。
+
 # 1.7.8
 
 修拒绝检测的漏检：中文最常见的那类拒绝并不说「我不能」，而是先说「这事我就不做了」，再讲危害、甩一堆「合规替代方案」、最后反问「你属于哪一种」——旧的 11 条特征一条都不命中，重试机制等于不存在。

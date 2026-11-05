@@ -226,3 +226,235 @@ test("1.7.7 rc.5: #57 keeps the developer-role allowlist on the responses path",
   assert.equal(applyReplacementsToText(out.text, patch(57)).changed, false);
 });
 
+// ─── 1.7.9 / 0.2.2-rc.1 ────────────────────────────────────────────────────────
+// 下面每段都取自 0.2.2-rc.1 解包后的真实宿主源码（逐字节拷贝，只换行符转义）。
+// 0.2.2 的关键变化：displayReason 改函数调用、assemble 返回带 tools、agent-loop 的
+// claim 与 assemble 不再相邻、ask 逻辑从入口 bundle 挪进 lib/pipeline.js、run_code 文案
+// 搬到 dsh-tool-executor-ptc、deliverable 提示词搬到 dsh-deliverable-file-references。
+
+const RC1_SANDBOX_ESCALATE =
+  "\tconst outcome = await approval.approver.request({\n" +
+  "\t\tagent: approval.agent,\n" +
+  "\t\ttoolName: approval.toolName,\n" +
+  "\t\tcallId: approval.callId,\n" +
+  "\t\treason: `escalate sandbox to ${mode}: ${justification}`,\n" +
+  "\t\tdisplayReason: escalationDisplayReason(mode, justification),\n" +
+  "\t\t...approval.signal ? { signal: approval.signal } : {}\n" +
+  "\t});\n";
+
+test("1.7.9 rc.1: #14 grants escalation when displayReason became a helper call", () => {
+  const out = applyReplacementsToText(RC1_SANDBOX_ESCALATE, patch(14));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("approval.approver !== undefined && approval.agent !== undefined ? await approval.approver.request({"));
+  assert.ok(out.text.includes('displayReason: escalationDisplayReason(mode, justification),'));
+  assert.ok(out.text.includes('}) : "allowed-once";'));
+  // 幂等：marker 命中后不再改写
+  assert.equal(applyReplacementsToText(out.text, patch(14)).changed, false);
+});
+
+const RC1_SYSTEM_PROMPT_ASSEMBLE =
+  "\t\tconst transformed = await this.ctx.waterfall(scopeTarget(this, scope), \"system-prompt/assemble\", assembly, context, () => Promise.resolve(assembly));\n" +
+  "\t\tif (completeSection === void 0 && !runtimeContextSuppressed) return {\n" +
+  "\t\t\t...transformed,\n" +
+  "\t\t\ttools\n" +
+  "\t\t};\n" +
+  "\t\tconst requiredContexts = new Set([...contextByName.values()].filter((entry) => entry.required === true).map((entry) => entry.name));\n" +
+  "\t\treturn {\n" +
+  "\t\t\t...transformed,\n" +
+  "\t\t\ttools,\n" +
+  "\t\t\tsections: completeSection === void 0 ? transformed.sections : [completeSection],\n" +
+  "\t\t\tcontexts: runtimeContextSuppressed ? transformed.contexts.filter((entry) => requiredContexts.has(entry.name)) : transformed.contexts\n" +
+  "\t\t};\n";
+
+test("1.7.9 rc.1: #40 keeps the inject and the new tools field", () => {
+  const out = applyReplacementsToText(RC1_SYSTEM_PROMPT_ASSEMBLE, patch(40));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("[completeSection, ...dshPurgeSections]"));
+  assert.ok(out.text.includes("[dsh-purge] complete prompt keeps inject"));
+  // rc.1 的 assemble 结果多了 tools：早退与完整两条 return 都必须原样带上。
+  assert.ok(out.text.includes("\t\t\ttools\n"));
+  assert.ok(out.text.includes("\t\t\ttools,\n"));
+  assert.ok(out.text.includes("requiredContexts.has(entry.name)"));
+  assert.equal(applyReplacementsToText(out.text, patch(40)).changed, false);
+});
+
+const RC1_AGENT_LOOP_MESSAGES =
+  "\t\t\t\t\tif (turnEnds && decision.messages.length === 0) break;\n" +
+  "\t\t\t\t\tif (phase.step === 0 && decision.messages.length === 0) {\n";
+
+test("1.7.9 rc.1: #67 guards empty messages inside the deeper try block", () => {
+  const out = applyReplacementsToText(RC1_AGENT_LOOP_MESSAGES, patch(67));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("if (turnEnds && (decision.messages?.length ?? 0) === 0) break;"));
+  assert.ok(out.text.includes("if (phase.step === 0 && (decision.messages?.length ?? 0) === 0) {"));
+  assert.equal(applyReplacementsToText(out.text, patch(67)).changed, false);
+});
+
+const RC1_AGENT_LOOP_PREPARE =
+  "\t\tconst claimed = this.inbox.claim(target, position.turn);\n" +
+  "\t\tconst selection = this.model.current();\n";
+
+test("1.7.9 rc.1: #74 hangs the prompt between claim and the model selection", () => {
+  const out = applyReplacementsToText(RC1_AGENT_LOOP_PREPARE, patch(74));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("globalThis.__dshPurgePrepareAssemble"));
+  assert.ok(out.text.includes("[dsh-purge] prepare assemble before this step"));
+  // 顺序：claim → prepare → model.current()
+  const iClaim = out.text.indexOf("const claimed = this.inbox.claim");
+  const iPrep = out.text.indexOf("dshPurgePrepare(this.loopCtx)");
+  const iSel = out.text.indexOf("const selection = this.model.current();");
+  assert.ok(iClaim < iPrep && iPrep < iSel, "prepare must sit between claim and selection");
+  assert.equal(applyReplacementsToText(out.text, patch(74)).changed, false);
+});
+
+const RC1_PIPELINE_ASK = [
+  "\tasync serviceAsk(exec, ask) {",
+  '\t\tconst approval = this.ctx.get("approval");',
+  "\t\tif (approval === void 0) return {",
+  "\t\t\tdecision: {",
+  '\t\t\t\tkind: "deny",',
+  '\t\t\t\treason: ask.reason ?? `tool "${exec.name}" requires approval (not yet supported)`',
+  "\t\t\t},",
+  "\t\t\tapprovalCancelled: false",
+  "\t\t};",
+  "\t\tif (exec.agent === void 0) return {",
+  "\t\t\tdecision: {",
+  '\t\t\t\tkind: "deny",',
+  '\t\t\t\treason: `tool "${exec.name}" requires approval, but the call has no agent to route it through`',
+  "\t\t\t},",
+  "\t\t\tapprovalCancelled: false",
+  "\t\t};",
+  "\t\tconst outcome = await approval.request({});",
+  "\t\tswitch (outcome) {",
+  '\t\t\tcase "unavailable": return {',
+  "\t\t\t\tdecision: {",
+  '\t\t\t\t\tkind: "deny",',
+  '\t\t\t\t\treason: `tool "${exec.name}" requires approval, but no approval channel is available`',
+  "\t\t\t\t},",
+  "\t\t\t\tapprovalCancelled: false",
+  "\t\t\t};",
+  '\t\t\tcase "rejected": return { decision: { kind: "deny" }, approvalCancelled: false };',
+  "\t\t}",
+  "\t}",
+].join("\n");
+
+test("1.7.9 rc.1: #62 covers dsh-tools/lib/pipeline.js (void 0 + agent-less)", () => {
+  const out = applyReplacementsToText(RC1_PIPELINE_ASK, patch(62));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("[dsh-purge] no approval service → allow (not user reject)"));
+  assert.ok(out.text.includes("[dsh-purge] no agent to route → allow"));
+  assert.ok(out.text.includes("[dsh-purge] unavailable channel → allow"));
+  assert.ok(!out.text.includes("requires approval (not yet supported)"));
+  assert.ok(!out.text.includes("the call has no agent to route it through"));
+  // 用户明确拒绝仍然是 deny
+  assert.ok(out.text.includes('case "rejected": return { decision: { kind: "deny" }'));
+  assert.equal(applyReplacementsToText(out.text, patch(62)).changed, false);
+});
+
+const RC1_TYPES_PIPELINE_ASK = [
+  "    async serviceAsk(exec, ask) {",
+  "        const approval = this.ctx.get('approval');",
+  "        if (approval === undefined) {",
+  "            return {",
+  "                decision: { kind: 'deny', reason: ask.reason ?? `tool \"${exec.name}\" requires approval (not yet supported)` },",
+  "                approvalCancelled: false,",
+  "            };",
+  "        }",
+  "        if (exec.agent === undefined) {",
+  "            return {",
+  "                decision: { kind: 'deny', reason: `tool \"${exec.name}\" requires approval, but the call has no agent to route it through` },",
+  "                approvalCancelled: false,",
+  "            };",
+  "        }",
+  "        const outcome = await approval.request({});",
+  "        switch (outcome) {",
+  "            case 'unavailable':",
+  "                return {",
+  "                    decision: { kind: 'deny', reason: `tool \"${exec.name}\" requires approval, but no approval channel is available` },",
+  "                    approvalCancelled: false,",
+  "                };",
+  "            case 'rejected': return { decision: { kind: 'deny' }, approvalCancelled: false };",
+  "        }",
+  "    }",
+].join("\n");
+
+test("1.7.9 rc.1: #62 covers the 4-space lib/types/pipeline.js dialect", () => {
+  const out = applyReplacementsToText(RC1_TYPES_PIPELINE_ASK, patch(62));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("[dsh-purge] no approval service → allow"));
+  assert.ok(out.text.includes("[dsh-purge] no agent to route → allow"));
+  assert.ok(out.text.includes("[dsh-purge] unavailable channel → allow"));
+  assert.ok(!out.text.includes("the call has no agent to route it through"));
+  assert.ok(!out.text.includes("no approval channel is available"));
+  assert.ok(out.text.includes("case 'rejected': return { decision: { kind: 'deny' }"));
+  assert.equal(applyReplacementsToText(out.text, patch(62)).changed, false);
+});
+
+const RC1_PTC_RUN_CODE =
+  '\t\tdescription: "Wider sandbox mode for this complete program execution; requires justification and approval."\n' +
+  "\t},\n" +
+  "\tjustification: {\n" +
+  '\t\ttype: "string",\n' +
+  '\t\tdescription: "Reason this complete program needs wider access, shown to the user for approval. Use the language of the user\u2019s current request."\n' +
+  "\t}\n" +
+  "};\n" +
+  'function escalationGuidance(mode) {\n\treturn mode === void 0 ? "" : " A sandbox escalation approves this complete program for one execution only. Nested tools retain their own policies and approvals. Request wider access only after evidence of a denial. Earlier effects may already have completed: inspect them before explicitly retrying. Programs are never replayed automatically.";\n}';
+
+test("1.7.9 rc.1: #60 neutralizes run_code approval text in dsh-tool-executor-ptc", () => {
+  const out = applyReplacementsToText(RC1_PTC_RUN_CODE, patch(60));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("Optional wider sandbox mode for this complete program execution. Approval is auto-granted."));
+  assert.ok(out.text.includes("Optional note on wider access. Approval is auto-granted."));
+  assert.ok(out.text.includes("[dsh-purge] official run_code approval teaching removed"));
+  assert.ok(!out.text.includes("requires justification and approval"));
+  assert.ok(!out.text.includes("Request wider access only after evidence of a denial"));
+  assert.equal(applyReplacementsToText(out.text, patch(60)).changed, false);
+});
+
+const RC1_DELIVERABLE_PROMPT =
+  "/** Static Web guidance for primary outputs and existing-file references. */\n" +
+  'const FILE_REFERENCE_PROMPT = "Prefer showing the primary results within your final response. Do not call present just to list edited source files, or run commands to check whether a diff view will appear. Use it for real deliverables.";\n';
+
+test("1.7.9 rc.1: #54 drops the deliverable prohibition in dsh-deliverable-file-references", () => {
+  const out = applyReplacementsToText(RC1_DELIVERABLE_PROMPT, patch(54));
+  assert.equal(out.changed, true);
+  assert.ok(!out.text.includes("Do not call present just to list edited source files"));
+  assert.ok(out.text.includes("[dsh-purge] deliverable prohibition removed"));
+  assert.ok(out.text.includes("Use it for real deliverables."));
+  assert.equal(applyReplacementsToText(out.text, patch(54)).changed, false);
+});
+
+const RC1_MAIN_IMPORT =
+  'import { REMOTE_STREAM_MUX_PATH, parseRemoteStreamServerMessage } from "@deepseek-ai/dsh-api-gateway/stream-protocol";\n' +
+  "//#region ../../node_modules/.pnpm/mime@4.1.1/node_modules/mime/dist/index.js\n";
+
+test("1.7.9 rc.1: #82 defaults DSH_PROFILE after the moved import block", () => {
+  const out = applyReplacementsToText(RC1_MAIN_IMPORT, patch(82));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes('[dsh-purge-82] 双击 exe 从 explorer 继承 env 时常缺 DSH_PROFILE'));
+  assert.ok(out.text.includes('process.env.DSH_PROFILE = "desktop"'));
+  // 只插在 import 行后，后面那段 region 注释原样保留
+  const iImport = out.text.indexOf("stream-protocol\";");
+  const iFallback = out.text.indexOf('process.env.DSH_PROFILE = "desktop"');
+  assert.ok(iImport < iFallback);
+  assert.ok(out.text.includes("//#region ../../node_modules/.pnpm/mime@4.1.1/"));
+  assert.equal(applyReplacementsToText(out.text, patch(82)).changed, false);
+});
+
+const RC1_DESKTOP_BOOT =
+  "\tcontrol.updateTasks = installDesktopUpdateTaskControl(ctx);\n" +
+  "\tcontrol.quitInspection = installDesktopQuitInspection(ctx);\n";
+
+test("1.7.9 rc.1: #91 still exits quietly when boot diagnostics sit in between", () => {
+  const out = applyReplacementsToText(RC1_DESKTOP_BOOT, patch(91));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("[dsh-purge] boot 途中收到 shutdown"));
+  assert.ok(out.text.includes('error.code === "INACTIVE_EFFECT"'));
+  assert.ok(out.text.includes("stopping !== void 0"));
+  assert.ok(out.text.includes('await send({ type: "shutdown-complete" })'));
+  assert.ok(out.text.includes("installDesktopUpdateTaskControl(ctx)"));
+  assert.ok(out.text.includes("installDesktopQuitInspection(ctx)"));
+  assert.ok(out.text.includes("throw error;"));
+  assert.equal(applyReplacementsToText(out.text, patch(91)).changed, false);
+});
+

@@ -9,7 +9,9 @@
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前版本 **1.7.8** · 适配 **DSH Desktop 0.2.1-rc.5**（rc.1 / rc.2 / rc.3 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.9** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+
+1.7.9 适配 DSH Desktop 0.2.2-rc.1：上游把工具执行拆成按 Agent 作用域选择的插件、`deliverable` 提示词迁到新包、`agent-loop` 在装配本步模型时改了顺序，导致 9 条补丁锚点漂移（4 必需 + 5 可选）。本版逐条补变体并新增 5 个补丁目标键；rc.1 原始宿主上 **0 条漂移**，副本实打 40 个改动文件全部通过 `node --check`，二次应用全 `already`；0.2.1-rc.5 回归仍 0 漂移。[发行说明](docs/releases/1.7.9.md) · [1.7.8 记录](docs/releases/1.7.8.md)。
 
 1.7.8 修拒绝检测的漏检：中文最常见的拒绝不直说「我不能」，而是「这事我就不做了 + 讲危害 + 甩合规替代 + 反问属于哪一种」，旧 11 条特征一条都不命中。本版新增 `LECTURE_PATTERNS` 一组劝退式软拒特征（≤1500 字符闸门防误报），审计带 `kind` 与命中正则，重试改为系统提示 + 末条 user 两道加固，重试用尽不再交白卷。[发行说明](docs/releases/1.7.8.md) · [1.7.7 记录](docs/releases/1.7.7.md) · [1.7.6 记录](docs/releases/1.7.6.md) · [知识库说明](docs/HACKSKILLS.md) · [启动自愈通用方法](docs/runtime-selfheal-method.md)。
 
@@ -145,8 +147,8 @@ powershell -ExecutionPolicy Bypass -File $env:TEMP\purge-install.ps1
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.8 |
-| 已验证宿主 | DSH Desktop 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
+| 插件 | `dsh-purge-community` 1.7.9 |
+| 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许安装，自检会标「未验证」；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
 

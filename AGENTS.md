@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.8** · 适配 DSH Desktop **0.2.1-rc.5**（rc.1 / rc.2 / rc.3 同样通过）
+> 当前版本：**1.7.9** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.5 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -131,8 +131,8 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.8 |
-| 已验证宿主 | DSH Desktop 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
+| 插件 | `dsh-purge-community` 1.7.9 |
+| 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
 
@@ -417,3 +417,17 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - 单测注意：`test/refusal-retry.test.mjs` 会调真实 `logAudit()`，按 `DSH_HOME` 定位。跑测试前先 `DSH_HOME=$(mktemp -d)`，否则真实 `audit.jsonl` 会被测试数据污染（1.7.8 期间踩到过，已清理）。
 - 分发注意：profile 用 git 依赖装插件时，运行时加载的是 `node_modules/dsh-purge-community` 那份副本，**改工作目录不影响运行时**。要么重新拉依赖，要么覆盖那份副本；两份文件的 hardlink 数可能是 2（pnpm store），就地写会连带改 store，要 `rm` + `cp` 断开再写。
 - 判定窗口不能被思考流截断：`reasoning-delta` 只透传、不结束扫描（高推理模型先吐思考再吐正文，旧逻辑第一个 reasoning 分片到达时 buffer 还是空的，等于永久放行）。扫描终止条件只有 `bufferChars`、`finish`、`tool-call-delta`，外加 `SCAN_CHUNK_LIMIT = 2000` 兜底。
+
+## 1.7.9：适配 DSH Desktop 0.2.2-rc.1
+
+- 宿主基线：0.2.2-rc.1（nightly 通道，`deepseek-harness-0.2.2-rc.1-win-x64.exe`）把 `@deepseek-ai/*` 一并升到 0.2.2-rc.1，并要求 Node.js ≥ 24.9、Cordis Core 4.1.0 / Loader 1.1.0 / Include 1.1.0。本版在其原始 `app.asar` 上逐条核对 82 条：起手 9 条漂移（4 必需 + 5 可选），补变体后 **drifted 0 / optionalDrift 0 / missing 0**；副本上带 `DSH_SURFACE=desktop` 真打两遍：可应用项全部落地、40 个改动 `.js` 全部 `node --check` 通过、二次应用全 `already`。
+- 上游把工具执行拆成按 Agent 作用域选择的插件（`dsh-tool-executor-ptc`），审批分支从 `dsh-tools/lib/index.js` 搬到 `lib/pipeline.js`，`deliverable` 提示词迁到新包 `dsh-deliverable-file-references`。因此 `targetFiles()` 新增 5 个目标键：`deliverable-file-references`、`tool-executor-ptc`、`tool-executor-ptc-types`、`dsh-tools-pipeline`、`dsh-tools-types-pipeline`。老宿主的旧键照旧保留。
+- #14 `ESCALATION_GRANT_UNCONDITIONAL`：rc.1 的 `approval.approver.request({...})` 多了 `displayReason: escalationDisplayReason(mode, justification)`，并在前面新增 `approver === void 0` / `agent === void 0` 两个 throw（#13 的补丁会把它们换成 bypass 注释）。新变体在 request 前判 `approval.approver !== undefined && approval.agent !== undefined`，否则回 `"allowed-once"` —— 与老宿主「没有通道就放行」的语义一致。
+- #40 `COMPLETE_PROMPT_KEEP_INJECT`：rc.1 的 `assemble` 返回多了 `tools`，早退路径也变成 `{ ...transformed, tools }`。新变体走常量 `COMPLETE_PROMPT_WATERFALL_INJECT_RC1`（保留 `tools`、`sections = [completeSection, ...dshPurgeSections]`）。**不要把 `tools` 丢掉**，否则工具面会整段消失。
+- #67 `AGENT_LOOP_MESSAGES_GUARD`：rc.1 把守卫移进 try 块、缩进变 5 个 tab，新增 5-tab 变体；#74 `ASSEMBLE_BEFORE_PRESTEP`：rc.1 在 `claim()` 与 `assemble()` 之间插入 `const selection = this.model.current();`（本步模型在装配前固定），新变体把 `__dshPurgePrepareAssemble` 调用插在这两行之间，语义仍是「本步 pre-step 之前准备装配」。
+- #54 / #60 / #62 换目标文件 + 补变体：`#54` 现在锚 `dsh-deliverable-file-references/lib/index.js`（旧 `dsh-client-ui-deliverables` 已不含这两句）；`#60` 覆盖 `dsh-tools` + `dsh-tools-ptc` + `tool-executor-ptc`（+`-types`）四个执行入口；`#62` 覆盖 `dsh-tools`（`void 0` 写法）、`dsh-tools/lib/types`、`lib/pipeline.js`（3 tab）、`lib/types/pipeline.js`（12 空格），并新增 `exec.agent === void 0` 的 4 空格变体：只放行「没有 Agent 可路由」，`rejected` / `cancelled` 仍然 deny。
+- #82 `DESKTOP_SHELL_PROFILE_FALLBACK`：rc.1 的 `resources/app/lib/main.js` 第 19 行不再是 home-paths region，新变体只锚 import 行 + 换行，把 `DSH_PROFILE=desktop` 兜底插在其后。**别把它改成锚 region 注释**，那条注释已经跟着 mime 包重排了。
+- #91 `DESKTOP_HOST_BOOT_INACTIVE_QUIET`：rc.1 在 `const { ctx } = await application;` 之后插了 `installOperationDiagnostics(...)`，旧多行锚点失效。新变体只锚两行 control 赋值（`control.updateTasks = ...` / `control.quitInspection = ...`），接管条件不变（`stopping !== void 0` 且 `error.code === "INACTIVE_EFFECT"`）。`let stopping;` 在同一函数作用域内，照样可引用。
+- `QUALIFIED_HOST_VERSIONS` 增加 `0.2.2-rc.1`；面板/CLI 不再标「未验证」。rc.5 真机回归仍 `drifted 0 / applied 71 / na 10 / skipped 1(#80)`，老宿主没有被新变体挤掉。
+- 回归：`test/patch-anchors.test.mjs` 新增十条 rc.1 夹具（逐字节取自真实源码）；`test/bypass-contract.test.mjs` 的 #14 / #67 指纹随之更新（语义未变，只是多一个变体）。
+- 仍需「应用」+ 完整退出重开：补丁写盘不代表当前进程加载。rc.1 起 `npm test` 有 23 条与本插件无关的 Windows 环境失败（backup/install/rollback 的 tar 路径 + CONNECT tunnel），基线复跑同样失败，不要把它们算成本版回归。
