@@ -1,5 +1,6 @@
 // Generated from src/ by npm run build. Do not edit.
 // Derived UI: YuJunZhiXue/dsh-purge (MIT), see LICENSE.
+// panel-version: 1.7.10
 window.__ModuleLoader__.load({id:"dsh-purge-community",factory:(require)=>{
 var module={exports:{}};var exports=module.exports;
 var __create = Object.create;
@@ -10844,6 +10845,25 @@ function detectHostTheme() {
 }
 
 // src/shared/versions.js
+function installedVersion(info) {
+  if (!info) return "";
+  return String(info.plugin_version || info.version || "").trim().replace(/^v/i, "");
+}
+function bundleVersion(info) {
+  if (!info) return "";
+  return String(info.panel_version || "").trim().replace(/^v/i, "");
+}
+function versionBadge(info, community = true) {
+  const ver = installedVersion(info);
+  const prefix = community ? "\u793E\u533A\u7248" : "\u72EC\u7ACB\u754C\u9762";
+  return ver ? prefix + " " + ver : prefix;
+}
+function bundleDrift(info) {
+  const installed = installedVersion(info);
+  const bundle = bundleVersion(info);
+  if (!installed || !bundle || installed === bundle) return null;
+  return { installed, bundle };
+}
 function splitListedVersion(raw) {
   const text = String(raw || "").trim().replace(/^v/i, "");
   const cut = text.split("-");
@@ -12872,12 +12892,17 @@ function SettingsRoot(props = {}) {
   const t = typeof props.t === "function" ? props.t : useT();
   const [page, setPage] = useState("status");
   const [backendStatus, setBackendStatus] = useState(null);
+  const [versionInfo, setVersionInfo] = useState(null);
   const st = useDock();
   const [visited, setVisited] = useState({ status: true });
   const select = (id) => {
     setPage(id);
     setVisited((v) => ({ ...v, [id]: true }));
   };
+  useEffect(() => {
+    apiJson("/dsh-purge/status").then((d) => d && d.ok !== false && setVersionInfo(d)).catch(() => {
+    });
+  }, []);
   useEffect(() => {
     if (st.tab === "drill" && st.open) select("drill");
   }, [st.tab, st.open]);
@@ -12898,7 +12923,7 @@ function SettingsRoot(props = {}) {
       h(
         "span",
         { className: "dshpp-native-badge" },
-        (true ? "\u793E\u533A\u7248 " : "\u72EC\u7ACB\u754C\u9762 ") + "1.7.8"
+        versionBadge(versionInfo, true)
       )
     ),
     h(CompatibilityNote, { status: backendStatus }),
@@ -13054,7 +13079,7 @@ function StatusStrip({ info }) {
       "span",
       { className: "dshpp-strip-item" },
       "\u63D2\u4EF6 ",
-      h("b", null, info?.plugin_version || "1.7.8")
+      h("b", null, installedVersion(info) || "\u2014")
     )
   );
 }
@@ -13080,6 +13105,7 @@ function LayoutNotice({ info }) {
     h("p", { className: "dshpp-note" }, note, diskNote, handoff)
   );
 }
+var UPSTREAM_API_VERSION = "1.1.71";
 function VersionNotice({ info }) {
   if (info && info.ok === false) {
     return h(
@@ -13088,12 +13114,22 @@ function VersionNotice({ info }) {
       `\u65E0\u6CD5\u786E\u8BA4\u5B98\u65B9 Purge \u63A5\u53E3\uFF1A${info.error || "\u63A5\u53E3\u4E0D\u53EF\u7528"}\u3002\u8BBE\u7F6E\u53EF\u80FD\u4E0D\u751F\u6548\uFF0C\u8BF7\u68C0\u67E5\u63D2\u4EF6\u662F\u5426\u5DF2\u542F\u7528\u540E\u91CD\u542F DSH\u3002`
     );
   }
-  const backend = info?.plugin_version;
-  if (!backend || backend === "1.7.8") return null;
+  if (true) {
+    const drift = bundleDrift(info);
+    if (!drift) return null;
+    return h(
+      "p",
+      { className: "dshpp-warn", role: "status" },
+      `\u63D2\u4EF6\u5DF2\u88C5 ${drift.installed}\uFF0C\u754C\u9762\u4EE3\u7801\u5374\u662F ${drift.bundle} \u6784\u5EFA\u7684\u3002\u754C\u9762\u53EF\u80FD\u7F3A\u65B0\u8BBE\u7F6E\u9879\uFF0C\u8BF7\u91CD\u542F DSH \u91CD\u65B0\u52A0\u8F7D\u754C\u9762\u3002`
+    );
+  }
+  const v = installedVersion(info);
+  const valid = info && typeof info.patches_total === "number" && !!v;
+  if (valid && v === UPSTREAM_API_VERSION) return null;
   return h(
     "p",
     { className: "dshpp-warn", role: "status" },
-    `\u5B98\u65B9\u7248\u672C ${backend}\uFF1B\u754C\u9762 ${"1.7.8"}\u3002\u4E24\u8005\u4E0D\u4E00\u81F4\u65F6\u8BBE\u7F6E\u53EF\u80FD\u4E0D\u751F\u6548\uFF0C\u8BF7\u66F4\u65B0\u5230\u540C\u4E00\u7248\u672C\u540E\u91CD\u542F DSH\u3002`
+    valid ? `\u5B98\u65B9\u7248\u672C ${v}\uFF1B\u6B64\u754C\u9762\u5DF2\u9A8C\u8BC1 ${UPSTREAM_API_VERSION}\u3002\u5982\u9047\u8BBE\u7F6E\u5F02\u5E38\uFF0C\u8BF7\u66F4\u65B0\u754C\u9762\u63D2\u4EF6\u3002` : "\u65E0\u6CD5\u786E\u8BA4\u5B98\u65B9 Purge \u63A5\u53E3\u3002\u8BF7\u68C0\u67E5\u5B98\u65B9\u63D2\u4EF6\u662F\u5426\u542F\u7528\uFF0C\u6216\u66F4\u65B0\u754C\u9762\u63D2\u4EF6\u3002"
   );
 }
 function PurgePage() {
@@ -13147,11 +13183,7 @@ function PurgePage() {
           "p",
           null,
           active[2],
-          true ? h(
-            "span",
-            { className: "dshpp-page-ver" },
-            "\u793E\u533A\u7248 1.7.8"
-          ) : null
+          true ? h("span", { className: "dshpp-page-ver" }, versionBadge(info)) : null
         )
       )
     ),

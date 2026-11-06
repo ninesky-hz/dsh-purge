@@ -9,6 +9,7 @@ import { PurgifySection } from "./settings-form.js";
 import { RulesSection } from "./rules.js";
 import { SkillsSection } from "./skills.js";
 import { __dshPurgeDrill } from "../vendor/drill.js";
+import { versionBadge } from "../shared/versions.js";
 import {
   readDrillAuth,
   setDock,
@@ -87,12 +88,19 @@ export function SettingsRoot(props = {}) {
   const t = typeof props.t === "function" ? props.t : useT();
   const [page, setPage] = useState("status");
   const [backendStatus, setBackendStatus] = useState(null);
+  const [versionInfo, setVersionInfo] = useState(null);
   const st = useDock();
   const [visited, setVisited] = useState({ status: true });
   const select = (id) => {
     setPage(id);
     setVisited((v) => ({ ...v, [id]: true }));
   };
+  useEffect(() => {
+    // 标题栏徽标只显示后端上报的运行时版本；拿不到就留占位，不回退到构建常量。
+    apiJson("/dsh-purge/status")
+      .then((d) => d && d.ok !== false && setVersionInfo(d))
+      .catch(() => {});
+  }, []);
   useEffect(() => {
     if (st.tab === "drill" && st.open) select("drill");
   }, [st.tab, st.open]);
@@ -113,7 +121,7 @@ export function SettingsRoot(props = {}) {
       h(
         "span",
         { className: "dshpp-native-badge" },
-        (__COMMUNITY__ ? "社区版 " : "独立界面 ") + __PANEL_VERSION__,
+        versionBadge(versionInfo, __COMMUNITY__),
       ),
     ),
     h(CompatibilityNote, { status: backendStatus }),

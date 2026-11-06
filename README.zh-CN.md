@@ -9,7 +9,9 @@
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前版本 **1.7.9** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.10** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+
+1.7.10 面板不再自带版本号：徽标以前渲染的是构建期常量，1.7.9 发版漏跑 `build:client`，装的是 1.7.9、面板却咬着 1.7.8 还弹「界面与后端不一致」。现在版本一律来自后端上报的运行时事实（`plugin_version` = 实际安装版本，`panel_version` = 后端读 `client.js` 头部标记得到的界面构建版本），两者不一致才提示，界面代码里没有任何固定版本字符串。[发行说明](docs/releases/1.7.10.md) · [1.7.9 记录](docs/releases/1.7.9.md)。
 
 1.7.9 适配 DSH Desktop 0.2.2-rc.1：上游把工具执行拆成按 Agent 作用域选择的插件、`deliverable` 提示词迁到新包、`agent-loop` 在装配本步模型时改了顺序，导致 9 条补丁锚点漂移（4 必需 + 5 可选）。本版逐条补变体并新增 5 个补丁目标键；rc.1 原始宿主上 **0 条漂移**，副本实打 40 个改动文件全部通过 `node --check`，二次应用全 `already`；0.2.1-rc.5 回归仍 0 漂移。[发行说明](docs/releases/1.7.9.md) · [1.7.8 记录](docs/releases/1.7.8.md)。
 
@@ -147,7 +149,7 @@ powershell -ExecutionPolicy Bypass -File $env:TEMP\purge-install.ps1
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.9 |
+| 插件 | `dsh-purge-community` 1.7.10 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许安装，自检会标「未验证」；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |

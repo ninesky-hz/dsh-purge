@@ -12,6 +12,11 @@ import { SkillsSection } from "./skills.js";
 import { CommunityMaintenance, StatusExtras } from "./maintenance.js";
 import { __dshPurgeDrill } from "../vendor/drill.js";
 import { readDrillAuth, setDock, requestDrill } from "../state/dock.js";
+import {
+  installedVersion,
+  versionBadge,
+  bundleDrift,
+} from "../shared/versions.js";
 
 const TABS = [
   ["status", "状态", "宿主兼容、补丁、破甲自检"],
@@ -101,7 +106,7 @@ function StatusStrip({ info }) {
       "span",
       { className: "dshpp-strip-item" },
       "插件 ",
-      h("b", null, info?.plugin_version || __PANEL_VERSION__),
+      h("b", null, installedVersion(info) || "—"),
     ),
   );
 }
@@ -139,7 +144,15 @@ export function LayoutNotice({ info }) {
   );
 }
 
-/** 界面与后端不是同一份包时，必须显眼提示——否则用户会以为设置没生效。 */
+/**
+ * 界面与后端不是同一份包时，必须显眼提示——否则用户会以为设置没生效。
+ * 社区版：后端同时报告「插件版本」和「界面 bundle 版本」，两者都由运行时读取，
+ * 界面里不写死任何版本号；只有界面代码确实是旧构建时才提示。
+ * 独立界面：拿到的是官方 Purge，基线是这个界面验证过的上游接口版本（1.1.71），
+ * 属于兼容契约而不是面板自身版本，保持原语义。
+ */
+const UPSTREAM_API_VERSION = "1.1.71";
+
 function VersionNotice({ info }) {
   if (info && info.ok === false) {
     return h(
@@ -148,12 +161,24 @@ function VersionNotice({ info }) {
       `无法确认官方 Purge 接口：${info.error || "接口不可用"}。设置可能不生效，请检查插件是否已启用后重启 DSH。`,
     );
   }
-  const backend = info?.plugin_version;
-  if (!backend || backend === __PANEL_VERSION__) return null;
+  if (__COMMUNITY__) {
+    const drift = bundleDrift(info);
+    if (!drift) return null;
+    return h(
+      "p",
+      { className: "dshpp-warn", role: "status" },
+      `插件已装 ${drift.installed}，界面代码却是 ${drift.bundle} 构建的。界面可能缺新设置项，请重启 DSH 重新加载界面。`,
+    );
+  }
+  const v = installedVersion(info);
+  const valid = info && typeof info.patches_total === "number" && !!v;
+  if (valid && v === UPSTREAM_API_VERSION) return null;
   return h(
     "p",
     { className: "dshpp-warn", role: "status" },
-    `官方版本 ${backend}；界面 ${__PANEL_VERSION__}。两者不一致时设置可能不生效，请更新到同一版本后重启 DSH。`,
+    valid
+      ? `官方版本 ${v}；此界面已验证 ${UPSTREAM_API_VERSION}。如遇设置异常，请更新界面插件。`
+      : "无法确认官方 Purge 接口。请检查官方插件是否启用，或更新界面插件。",
   );
 }
 
@@ -214,11 +239,7 @@ export function PurgePage() {
           null,
           active[2],
           __COMMUNITY__
-            ? h(
-                "span",
-                { className: "dshpp-page-ver" },
-                "社区版 " + __PANEL_VERSION__,
-              )
+            ? h("span", { className: "dshpp-page-ver" }, versionBadge(info))
             : null,
         ),
       ),

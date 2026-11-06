@@ -1,5 +1,44 @@
 // UI derived from YuJunZhiXue/dsh-purge 1.1.71 (MIT). See LICENSE.
 
+/**
+ * 界面版本一律来自后端上报的运行时事实，不在面板里写死。
+ *
+ * 历史坑：徽标曾经渲染构建期常量 __PANEL_VERSION__。1.7.9 发版漏跑 build:client，
+ * bundle 里烙着的还是 1.7.8，装的是 1.7.9、面板却显示 1.7.8，还弹一条
+ * 「界面与后端不一致」。现在：
+ *   - installedVersion(info)  = 后端 runningVersion()，即真正装着的版本；
+ *   - bundleVersion(info)     = 后端读 client.js 头部 marker，即界面代码是哪版构建的；
+ * 两者都来自运行时，界面自己不再输出任何固定版本号。
+ */
+export function installedVersion(info) {
+  if (!info) return "";
+  return String(info.plugin_version || info.version || "")
+    .trim()
+    .replace(/^v/i, "");
+}
+
+export function bundleVersion(info) {
+  if (!info) return "";
+  return String(info.panel_version || "")
+    .trim()
+    .replace(/^v/i, "");
+}
+
+/** 徽标文本：后端未响应时留空占位，绝不回退到某个写死的版本。 */
+export function versionBadge(info, community = true) {
+  const ver = installedVersion(info);
+  const prefix = community ? "社区版" : "独立界面";
+  return ver ? prefix + " " + ver : prefix;
+}
+
+/** 界面 bundle 与运行中的插件不是同一版时返回两者，否则 null。 */
+export function bundleDrift(info) {
+  const installed = installedVersion(info);
+  const bundle = bundleVersion(info);
+  if (!installed || !bundle || installed === bundle) return null;
+  return { installed, bundle };
+}
+
 export function splitListedVersion(raw) {
   const text = String(raw || "")
     .trim()

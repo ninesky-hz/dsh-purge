@@ -1,3 +1,17 @@
+# 1.7.10
+
+面板不再自带版本号。以前徽标渲染的是构建期常量，1.7.9 发版漏跑 `build:client`，装的是 1.7.9、面板却咬着 1.7.8，还常驻一条「官方版本 1.7.9；界面 1.7.8」的黄条。现在版本一律来自后端上报的运行时事实，界面代码里没有任何固定版本字符串。
+
+- **运行时版本**：`/dsh-purge/status` 与 `/dsh-purge/community` 新增 `panel_version` —— `lib/update.js` 的 `panelBundleVersion()` 只读包内 `client.js` 头部 4 KB，取 `// panel-version:` 标记；配合已有的 `plugin_version`（`runningVersion()`）。
+- **徽标**：`社区版 <实际安装版本>`；状态条「插件」同源；后端没响应时只显示「社区版」，不回退到写死的常量。
+- **不一致提示**：只在 `panel_version !== plugin_version`（界面 bundle 真是旧构建）时出现，文案改成「插件已装 X，界面代码却是 Y 构建的…」。独立面板（非社区版）仍以上游接口版本 `1.1.71` 为基线，那是兼容契约。
+- **构建**：`packages/purge-panel/scripts/build.mjs` 在产物头部写 `// panel-version: <pkg.version>`；`npm run check:client` 仍按字节比对。
+- **回归**：新增 `packages/purge-panel/test/version-badge.test.mjs`（徽标跟随运行时版本、drift 只在真不一致时触发、bundle 头部 marker 与 `package.json` 一致、bundle 内无「社区版 1.x.y」常量）；`npm --prefix packages/purge-panel test` 23/23 通过。
+- **顺手修**：`packages/purge-panel/test/maintenance.test.cjs` 的按钮/空态文案还停在重构前（「刷新备份列表」/「暂无备份」），与 `maintenance.js` 对不上，单测一直是红的；本版同步为「刷新」/「还没有本机备份」。
+- **升级**：面板代码属插件运行时模块，装完仍需手动「应用」+ 完整退出重开 DSH。
+
+[完整说明](docs/releases/1.7.10.md)
+
 # 1.7.9
 
 适配 DSH 0.2.2-rc.1：宿主这一版动了 9 个补丁落点，其中 4 条是「闸门」（沙箱提权、完整提示词重写后保留注入、agent-loop 消息守卫、每步装配）——不修的话插件能装能加载，但提权免审批、整份重写提示词后仍带甲、每步重注入会静默失效。

@@ -99,16 +99,16 @@ test("loading, read failure and empty backup lists are distinct; refresh recover
   );
   const tree = await mount(h);
   assert(text(tree).includes("正在读取备份"));
-  assert(!text(tree).includes("暂无备份"));
+  assert(!text(tree).includes("还没有本机备份"));
   await act(async () => {
     resolve(reply({ ok: false, error: "profile ambiguous" }));
     await flush();
   });
   assert(text(tree).includes("读取备份失败：profile ambiguous"));
-  assert(!text(tree).includes("暂无备份"));
+  assert(!text(tree).includes("还没有本机备份"));
   mode = "empty";
-  await click(tree, "刷新备份列表");
-  assert(text(tree).includes("暂无备份"));
+  await click(tree, "刷新");
+  assert(text(tree).includes("还没有本机备份"));
   await unmount(tree);
 });
 test("HTTP 200 business failure shows the update error and rereads recovery backups without replaying writes", async () => {

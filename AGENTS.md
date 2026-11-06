@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.9** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.5 同样通过）
+> 当前版本：**1.7.10** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.5 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -131,7 +131,7 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.9 |
+| 插件 | `dsh-purge-community` 1.7.10 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
@@ -431,3 +431,13 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - `QUALIFIED_HOST_VERSIONS` 增加 `0.2.2-rc.1`；面板/CLI 不再标「未验证」。rc.5 真机回归仍 `drifted 0 / applied 71 / na 10 / skipped 1(#80)`，老宿主没有被新变体挤掉。
 - 回归：`test/patch-anchors.test.mjs` 新增十条 rc.1 夹具（逐字节取自真实源码）；`test/bypass-contract.test.mjs` 的 #14 / #67 指纹随之更新（语义未变，只是多一个变体）。
 - 仍需「应用」+ 完整退出重开：补丁写盘不代表当前进程加载。rc.1 起 `npm test` 有 23 条与本插件无关的 Windows 环境失败（backup/install/rollback 的 tar 路径 + CONNECT tunnel），基线复跑同样失败，不要把它们算成本版回归。
+
+## 1.7.10：面板版本改为运行时上报
+
+- **症状**：装的是 1.7.9，面板徽标写「社区版 1.7.8」，还常驻一条「官方版本 1.7.9；界面 1.7.8。两者不一致…」的黄条。原因是徽标渲染构建期常量 `__PANEL_VERSION__`，1.7.9 发版漏跑 `npm run build:client`，`client.js` 里烙着的还是 1.7.8；那条黄条又拿后端版本和同一个常量比，于是必然不相等。
+- **现在**：版本一律来自后端上报的运行时事实。`/dsh-purge/status` 与 `/dsh-purge/community` 新增 `panel_version`：`lib/update.js` 的 `panelBundleVersion()` 只读包内 `client.js` 头部 4 KB，匹配 `// panel-version: <ver>`（由 `packages/purge-panel/scripts/build.mjs` 写入）。配合已有的 `plugin_version`（`runningVersion()`，即实际安装版本）。
+- **徽标**：`社区版 <plugin_version>`（状态条「插件」同源）；后端没响应时只显示「社区版」，**不回退到任何写死的版本号**。
+- **不一致提示**：只在 `panel_version !== plugin_version`（界面 bundle 确实是旧构建）时出现，文案为「插件已装 X，界面代码却是 Y 构建的…」。独立面板（非社区版）仍以验证过的上游接口版本 `1.1.71` 为基线，那是兼容契约不是面板版本。
+- **校验**：`packages/purge-panel/test/version-badge.test.mjs` 断言徽标跟随后端版本、drift 只在真不一致时触发、bundle 头部 marker 等于 `package.json` 版本、bundle 内不再出现「社区版 1.x.y」这类常量。
+- **顺手修**：`packages/purge-panel/test/maintenance.test.cjs` 里按钮标签还停在重构前的「刷新备份列表」/「暂无备份」，与 `maintenance.js`（「刷新」/「还没有本机备份」）对不上，单测一直是红的；本版同步标签。
+- 仍需「应用」+ 完整退出重开：板面代码是插件运行时模块，改完不重启不生效。

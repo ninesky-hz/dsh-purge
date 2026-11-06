@@ -35,6 +35,11 @@ const bundleText = result.outputFiles[0].text.replace(/\r\n/g, "\n");
 const output =
   "// Generated from src/ by npm run build. Do not edit.\n" +
   "// Derived UI: YuJunZhiXue/dsh-purge (MIT), see LICENSE.\n" +
+  // 后端（lib/update.js 的 panelBundleVersion）读这行，把「界面 bundle 是哪版构建的」
+  // 作为运行时事实上报；面板不再自带一份写死的版本号。
+  "// panel-version: " +
+  pkg.version +
+  "\n" +
   "window.__ModuleLoader__.load({id:" +
   JSON.stringify(pkg.name) +
   ",factory:(require)=>{\n" +
