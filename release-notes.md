@@ -1,3 +1,22 @@
+# 1.7.12
+
+宿主 0.2.2-rc.1 把 `list_agents` 并进了 `dsh-tool-subagent-control` 本体（包的 exports 里不再有 `./list-agents`），`dsh-workflow-worker-thread` 也不再随宿主发布。旧预设还留着那两行，于是 `设置 → Agent 预设` 里「红队模式」挂着「加载失败」，「无限制模式」直接不在列表里——一条死行把整份预设判死。
+
+- **两条预设表现不同的原因**：`redteam` 由 `lib/redteam/index.js` 注册一次，broken 记录留在 registry，界面显示徽标；`unrestricted` 走 `registerPresetDefinitions()`，`resolve().broken` 直接抛错 → 释放 + 重试 40 次 → 从未注册 → 列表里没有它。证据在 `$DSH_HOME/redteam/preset-declare.json`：`broken: "tool-subagent-list-agents (@deepseek-ai/dsh-tool-subagent-control/list-agents): never started"`。
+- **数据层**：`presets/redteam|unrestricted/agent.cordis.yml` 与 `$DSH_HOME/.agent-presets/redteam|unrestricted/agent.cordis.yml` 删掉 `tool-subagent-list-agents` 与 `workflow-worker-thread` 两行（删前留 `.bak-<ts>`）。`unrestricted` 带 `# managed-by: dsh-purge`，下次安装会同步；`redteam` 是用户自有文件，就地改。
+- **代码层**：`lib/preset-compat.js` 新增 `dropPresetRow(rows, name)` 与 `registerPresetDefinitions(registry, definitions, { onPruned, maxRowDrops = 12 })`。注册失败且消息匹配 `/(\S+) \((.+?)\): never started/` 时只删该模块名的行（含 `group: true` 的 `config` 内）再重试；匹配不到或删不到任何行照旧抛出——不把真的加载错误当无害。`presets-plugin.js` 与 `lib/redteam/index.js` 都接了回调：warn 日志 + `preset-declare.json` 的 `pruned` 数组。
+- **回归**：`test/preset-compat.test.mjs` 加三条（剪枝重试且不修改调用方定义、无关 broken 仍抛出、模板不再声明这两个模块且 `list_agents` 仍由 control 包提供），7/7 通过。
+- **升级**：插件运行时代码与预设文件都变了，要覆盖 profile 的 `node_modules/dsh-purge-community` 并完整退出重开；只刷新面板不够。
+
+**测试脚手架安全修复**：`test/desktop-presets.mjs` 在临时 profile 里建了一个指向宿主 `@deepseek-ai` 的 junction，回收时用 `fs.rmSync(home, { recursive: true })`。在 Electron 的 Node 24.21.0 上，这个原生递归删除**会跟着 junction 进目标目录**，把真实安装的 `node_modules/@deepseek-ai` 清空（2026-11-06 本机实测复现；Node 22.20.0 不跟）。现在改用 `lib/remove-tree.js` 的 `removeTreeNoFollowSync()`（lstat → 遇符号链接只 `unlink`，绝不递归进目标），并加一条回归断言该文件不得再出现原生递归 rm。
+
+发行源同时换到我们自己的仓库：默认 `n-sky/dsh-purge`（Gitee），面板「发行记录」、包元数据、安装脚本与徽章一并指向它。
+
+- **默认源**：`lib/update-source.js` 的 `DEFAULT_REPOSITORY` / `DEFAULT_PROVIDER` 改为 `n-sky/dsh-purge` + `gitee`；`PURGE_UPDATE_REPO` / `PURGE_UPDATE_PROVIDER` 仍是覆盖手段。`lib/update-net.js` 的 `SOURCE_REPO` 从它派生，不再第二处硬编码。
+- **文案与校验**：`httpFailure()` 的错误文案按活动源 label 生成（`Gitee 资源不存在或无访问权限（HTTP 404）`），额度/认证提示跟着换 token 名；源码 ZIP 的逐文件校验按活动源取 Git tree——Gitee 与 GitHub 同形同一套校验，无 tree 接口的源 fail-closed 指回发行包通道（`.tgz` + `SHA256SUMS`）。
+- **同步**：维护页「发行记录」、欢迎语仓库链接、`package.json` 的 `repository` / `homepage` / `bugs` / `dsh.install.*`、`scripts/install.sh` / `install.ps1` 的 bootstrap 基址、`bootstrap-install.mjs` 的取包入口全部换到 Gitee 仓；NOTICE / CONTRIBUTORS 与历史发行说明里的上游链接保持原样。
+- [完整说明](docs/releases/1.7.12.md)
+
 # 1.7.11
 
 面板同一个屏幕给出两个补丁数：hero 写「55/67 条补丁已生效」，顶部条写「磁盘写入计数 64/76」。差在分母——hero 数的是**展示行**，顶部条数的是**补丁 id**。升级链合并显示把 15 个 id 压成 6 行，所以 76 条适用补丁只剩 67 行、64 条已应用只剩 55 行。本版把口径统一到 id，并把从来没人渲染的「12 条 skipped」放到副标题里。

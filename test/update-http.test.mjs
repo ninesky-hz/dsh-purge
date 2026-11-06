@@ -48,7 +48,7 @@ test('API and Atom failures remain visible, including when a cached list is used
   const failed=await listForkReleases({fresh:true,services:unavailable});
   assert.match(failed.error,/额度耗尽/);assert.match(failed.degraded,/代理连接超时/);
   const fallback=await listForkReleases({fresh:true,services:{...unavailable,atom:async()=>({tags:['v1.6.28'],error:''}),verify:async item=>item}});
-  assert.match(fallback.degraded,/releases.atom/);
-  const cached=await listForkReleases();assert(cached.cached);assert.match(cached.degraded,/releases.atom/);
+  assert.match(fallback.degraded,/已改用 (?:releases\.atom|标签) 列表/);
+  const cached=await listForkReleases();assert(cached.cached);assert.match(cached.degraded,/已改用 (?:releases\.atom|标签) 列表/);
   const stale=await listForkReleases({fresh:true,services:unavailable});assert(stale.stale);assert.match(stale.degraded,/代理连接超时/);
 });

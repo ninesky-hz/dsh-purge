@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.11** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.5 同样通过）
+> 当前版本：**1.7.12** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.5 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -131,7 +131,7 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.11 |
+| 插件 | `dsh-purge-community` 1.7.12 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
@@ -452,3 +452,18 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - **#40 写进去却认不出**：rc.1 分支写的是 `// [dsh-purge] complete prompt keeps inject`，而 `markers` 只收了 `… keeps inject + agent-instructions` 那条更长的，`patchApplied()` 于是判 false —— 补丁已落盘、面板仍算 skipped。补上短形式标记，实测应用后 74/76。
 - **回归**：`packages/purge-panel/test/patch-count.test.mjs` 用 `ALL_PATCHES` 真实 id 复刻事故（**注意 id 不连续：`#85/#86` 已被 `#90` 取代移除**，用 `Array.from({length:82})` 会算出 69 行）；`test/patch-anchors.test.mjs` 加两条 #17 用例（rc.1 委托形态 + 旧宿主 inline 形态），并在 rc.1 的 #40 用例里断言「写入的标记必须出现在 markers 里」。
 - **升级**：本机原为 1.7.7（`update-status.json` 与实包一致，`applied.json` 却残留 1.7.9），1.7.7 缺 rc.1 的 10 条变体（#14/#17/#40/#54/#60/#62/#67/#74/#82/#91）→ 必然 skipped。已部署 1.7.11 并应用：磁盘 74/76 生效，#76（用户自定义预设）与 #80（minimal 预设）仍 skipped，均为可选。加载仍需完整退出重开。
+
+## 1.7.12：宿主删掉的插件行会把整份预设判死
+
+- **症状**：`设置 → Agent 预设` 里「红队模式」挂着红色「加载失败」，「无限制模式」干脆不在列表里（不是排后面，是没有这一条）。
+- **证据**：`$DSH_HOME/redteam/preset-declare.json` 写明 `{"ok":false,"phase":"registered-broken","broken":"tool-subagent-list-agents (@deepseek-ai/dsh-tool-subagent-control/list-agents): never started"}`。先别怀疑 YAML —— 三份 `agent.cordis.yml` 用 `yaml` 解析都是 0 错误，问题在注册期。
+- **根因**：宿主 0.2.2-rc.1 把 `list_agents` 并进 `dsh-tool-subagent-control` 本体（`lib/index.js` 的 `registerListAgents()` 自己注册 `list_agents`），包的 exports 里不再有 `./list-agents`；`dsh-workflow-worker-thread` 也不再随宿主发布。旧预设仍留着
+  `- id: tool-subagent-list-agents` / `name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'` / `disabled: false` 这一块，loader 起不动它，registry 就把**整份**预设记为 broken。
+- **为什么两条预设表现不同**：`redteam` 由 `lib/redteam/index.js` 注册一次，broken 记录留在 registry → 界面显示「加载失败」；`unrestricted` 走 `registerPresetDefinitions()`，`resolve().broken` 直接抛错 → 释放已注册项并重试 40 次 → 最终从未注册 → 列表里没有它。
+- **修法一层（数据）**：模板与用户副本删掉这两行 —— `presets/redteam|unrestricted/agent.cordis.yml` 与 `$DSH_HOME/.agent-presets/redteam|unrestricted/agent.cordis.yml`。删前留 `.bak-<ts>`；`unrestricted` 带 `# managed-by: dsh-purge` 会被下次安装同步，`redteam` 是用户自有文件，只能就地改。
+- **修法二层（代码兜底）**：`lib/preset-compat.js` 新增 `dropPresetRow(rows, name)`（递归进 `group: true` 的 `config`，不改输入）与 `registerPresetDefinitions(registry, definitions, { onPruned, maxRowDrops = 12 })`：注册失败且错误消息匹配 `/(\S+) \((.+?)\): never started/` 时，只删该模块名的行并重试；匹配不到、或删不到任何行，**照旧抛出**。`presets-plugin.js` 与 `lib/redteam/index.js` 都接了这个回调：日志一条 warn，`preset-declare.json` 多一个 `pruned` 数组。宿主以后再删插件，预设不会整份陪葬。
+- **不要做的事**：不要把 `broken` 一律当无害（会掩盖真的加载错误）；不要为了消除徽标把 `tool-subagent-list-agents` 改成 `disabled: true`（死行仍在，rc.1 里没有这个包，照样 never started）；不要改用户的 `preset.yml` 或整份覆盖 `redteam`。
+- **回归**：`test/preset-compat.test.mjs` 新增三条 —— 剪枝重试（顶层 + group 内各一行，调用方定义不被修改，且只重试一次）、不相关的 broken 仍抛出且不触发剪枝、模板不再声明 `@deepseek-ai/dsh-tool-subagent-control/list-agents` 与 `@deepseek-ai/dsh-workflow-worker-thread` 且 `list_agents` 仍由 control 包提供。`node --test test/preset-compat.test.mjs` 7/7。
+- **升级**：改的是插件运行时代码与预设文件，要覆盖 profile 的 `node_modules/dsh-purge-community` 并完整退出重开；只看面板刷新不够。
+- **脚手架安全**：`test/desktop-presets.mjs` 的临时 profile 里有指向宿主 `@deepseek-ai` 的 junction。**Electron 的 Node 24 上 `fs.rmSync(home, { recursive: true })` 会跟着 junction 进目标目录，把真实安装的 331 个包清空**（2026-11-06 本机复现；Node 22 不跟）。回收必须走 `lib/remove-tree.js` 的 `removeTreeNoFollowSync()`。同理由：任何"临时目录里塞 junction 再整目录删"的写法都不行，先 `unlink` 链接再删父目录。`test/remove-tree.test.mjs` 已加静态断言防止回退。
+- **发行源同版本切到自家仓**：默认 `DEFAULT_REPOSITORY = "n-sky/dsh-purge"` + `DEFAULT_PROVIDER = "gitee"`（`lib/update-source.js`），`lib/update-net.js` 的 `SOURCE_REPO` 从它派生。面板报 404 时先查残留的 `PURGE_UPDATE_REPO`，再怀疑代码。面板「发行记录」/欢迎语/`package.json` 元数据/`install.sh|ps1`/`bootstrap-install.mjs` 全部指向 Gitee 仓；`market/` 索引、`.github/workflows/*`、历史 `docs/releases/*`、NOTICE/CONTRIBUTORS 保留上游，别当漏改。校验与文案细节见 `docs/releases/1.7.12.md`。**Windows 上别写 `env -u VAR cmd`**，用 `$env:VAR=$null`。

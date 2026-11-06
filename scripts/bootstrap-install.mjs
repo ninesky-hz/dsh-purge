@@ -7,8 +7,20 @@ import { execFile, spawn } from "node:child_process";
 import { promisify } from "node:util";
 import { pathToFileURL } from "node:url";
 const exec = promisify(execFile);
-const repo = "kingcharleslzy-ai/dsh-purge";
-const hosts = new Set(["api.github.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"]);
+// Releases live in our own Gitee repository now; the GitHub hosts stay trusted only
+// so legacy assets, an explicitly configured mirror and older fixtures keep working.
+const repo = "n-sky/dsh-purge";
+const releaseApiBase = `https://gitee.com/api/v5/repos/${repo}`;
+const releaseAssetBase = `https://gitee.com/${repo}/releases/download`;
+// Published packages carry the repository URL they were built with. Older versions
+// were built before the source moved, so their identity is still legitimate.
+const packageIdentities = new Set([
+  `git+https://gitee.com/${repo}.git`,
+  `https://gitee.com/${repo}.git`,
+  `git+https://github.com/${repo}.git`,
+  `git+https://github.com/kingcharleslzy-ai/dsh-purge.git`,
+]);
+const hosts = new Set(["gitee.com", "file.gitee.com", "objects.gitee.com", "api.github.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"]);
 
 // Keep this module self-contained: the raw installer runs before dependencies exist.
 const transientCodes = new Set(['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'ENETUNREACH', 'EHOSTUNREACH', 'EAI_AGAIN', 'ENOTFOUND', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT', 'UND_ERR_SOCKET', 'UND_ERR_DESTROYED', 'TimeoutError', 'AbortError']);
@@ -41,7 +53,7 @@ export function curlReleaseRequest(url, { timeout, limit, env = process.env } = 
   return new Promise((resolve, reject) => {
     const executable = process.platform === 'win32' ? path.join(process.env.SystemRoot || 'C:\\Windows', 'System32', 'curl.exe') : '/usr/bin/curl';
     const args = ['--disable', '--silent', '--show-error', '--globoff', '--proto', '=https', '--connect-timeout', '20', '--max-time', String(Math.max(0.001, timeout / 1000)),
-      '--include', '--suppress-connect-headers', '--header', 'accept: application/vnd.github+json', '--user-agent', 'purge-community-installer', '--url', url];
+      '--include', '--suppress-connect-headers', '--header', 'accept: application/json', '--user-agent', 'purge-community-installer', '--url', url];
     // Schannel curl does not consistently honor CURL_CA_BUNDLE implicitly.
     // Honor an explicitly provided CA file without touching the system trust store.
     if (env.CURL_CA_BUNDLE) args.splice(args.length - 2, 0, '--cacert', env.CURL_CA_BUNDLE);
@@ -299,13 +311,13 @@ export async function bootstrapInstall(options = {}) {
   let version = options.version || (local ? /^dsh-purge-community-(\d+\.\d+\.\d+)\.tgz$/.exec(path.basename(options.archiveFile))?.[1] : undefined);
   if (local && !version) throw Error("Specify --version for this local archive");
   if (!version) {
-    const release = JSON.parse((await downloadReleaseFile(`https://api.github.com/repos/${repo}/releases/latest`, 1024 * 1024, { ...download, request, log, stage: "metadata" })).toString("utf8"));
+    const release = JSON.parse((await downloadReleaseFile(`${releaseApiBase}/releases/latest`, 1024 * 1024, { ...download, request, log, stage: "metadata" })).toString("utf8"));
     if (release.draft || release.prerelease) throw Error("Latest release is not stable");
     version = String(release.tag_name || "").replace(/^v/, "");
   }
   if (!/^\d+\.\d+\.\d+$/.test(version)) throw Error("Invalid release version");
   const filename = `dsh-purge-community-${version}.tgz`;
-  const base = `https://github.com/${repo}/releases/download/v${version}`;
+  const base = `${releaseAssetBase}/v${version}`;
   log(`${local ? "Verifying local" : "Downloading"} Purge Community ${version}...`);
   if (local && fs.statSync(options.archiveFile).size > 50 * 1024 * 1024) throw Error("Release file too large");
   const archive = local ? fs.readFileSync(options.archiveFile) : await downloadReleaseFile(`${base}/${filename}`, 50 * 1024 * 1024, { ...download, request, log, stage: "archive", budget: archiveDownloadBudget() });
@@ -322,7 +334,7 @@ export async function bootstrapInstall(options = {}) {
     if (!listing.stdout.trim() || listing.stdout.trim().split(/\r?\n/).some(name => !/^package\//.test(name) || name.includes("\\") || name.split("/").some(part => part === ".."))) throw Error("Invalid archive paths");
     await run(tar, ["-xzf", filename], { cwd: tmp, timeout: 30000, windowsHide: true });
     const manifest = JSON.parse(fs.readFileSync(path.join(tmp, "package/package.json"), "utf8"));
-    if (manifest.name !== "dsh-purge-community" || manifest.version !== version || manifest.repository?.url !== `git+https://github.com/${repo}.git`) throw Error("Release package identity mismatch");
+    if (manifest.name !== "dsh-purge-community" || manifest.version !== version || !packageIdentities.has(manifest.repository?.url)) throw Error("Release package identity mismatch");
     const host = platform === "linux" && mode === "web" ? prepareLinuxHost(cli, { userHome: options.userHome, log }) : null;
     if (host) cli = host.cli;
     const result = await run(executable, [path.join(tmp, "package/bin/community.js"), "migrate", file], {

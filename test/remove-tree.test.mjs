@@ -14,8 +14,7 @@ function fixture(){
  const link=(target,name)=>fs.symlinkSync(target,name,process.platform==='win32'?'junction':'dir');
  return {root,outside,tree,link,check(){assert.equal(fs.readFileSync(path.join(outside,'sentinel'),'utf8'),'KEEP')},close(){removeTreeNoFollowSync(root)}};
 }
-for(const [name,remove] of [['sync',removeTreeNoFollowSync],['async',removeTreeNoFollow]]) {
- test(`${name}: root/nested links, cycles and dangling links never enter targets`,async()=>{
+for(const [name,remove] of [['sync',removeTreeNoFollowSync],['async',removeTreeNoFollow]]) { test(`${name}: root/nested links, cycles and dangling links never enter targets`,async()=>{
   const f=fixture();try{
    f.link(f.outside,path.join(f.tree,'external'));fs.mkdirSync(path.join(f.tree,'nested'));
    f.link(f.outside,path.join(f.tree,'nested','external'));f.link(f.tree,path.join(f.tree,'cycle'));
@@ -70,4 +69,13 @@ test('production modules contain no native recursive rm cleanup',()=>{
   else if(file.endsWith('.js'))assert(!/\b(?:rmSync|\.rm)\([^\n;]*?recursive:\s*true/.test(fs.readFileSync(file,'utf8')),file);
  }}
  scan(fileURLToPath(new URL('../lib',import.meta.url)));
+});
+
+test('electron acceptance harness cleans temp homes without following junctions',()=>{
+ const file=fileURLToPath(new URL('./desktop-presets.mjs',import.meta.url));
+ const source=fs.readFileSync(file,'utf8');
+ // The temp profile links the live host's @deepseek-ai; a native recursive rm
+ // follows that junction on Windows and empties the installed packages.
+ assert(!/\b(?:rmSync|\.rm)\([^\n;]*?recursive:\s*true/.test(source),'desktop-presets.mjs must not use native recursive rm');
+ assert(source.includes('removeTreeNoFollowSync(home)'),'desktop-presets.mjs must remove the temp home with removeTreeNoFollowSync');
 });

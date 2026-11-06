@@ -6,12 +6,11 @@
 
 给 DeepSeek Harness 的自托管控件（俗称「破甲」插件）· 82 条宿主补丁 · 26 层状态自检 · 左侧栏整页设置
 
-[![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
-[![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
+[![Release](https://img.shields.io/badge/release-1.7.12-blue)](https://gitee.com/n-sky/dsh-purge/releases)
 
-当前版本 **1.7.11** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.12** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
 
-1.7.11 修补丁计数：同一屏以前给出两个数，hero 写「55/67 条补丁已生效」、顶部条写「磁盘写入计数 64/76」。差在分母——hero 数的是合并后的展示行（升级链把 15 个 id 压成 6 行），顶部条数的是补丁 id；那 12 条 skipped 也从来没被渲染出来。现在口径统一到 id：`64/76`，副标题补「未生效 12 · 不适用 6 · 共 82 条」。顺带修掉 #17 在 DSH 0.2.2-rc.1 上的真锚点漂移（`editIntent` 被上游改成一行 `requirePresent` 委托）。[发行说明](docs/releases/1.7.11.md) · [1.7.10 记录](docs/releases/1.7.10.md)。
+1.7.12 修预设注册：宿主 0.2.2-rc.1 删掉了 `dsh-tool-subagent-control/list-agents` 这个子路径（`list_agents` 已并入 control 包自身），而 `无限制模式` 与 `红队模式` 还留着那一行 —— `disabled: false` 的死行让整份预设判 broken：红队显示「加载失败」，无限制模式直接不出现在下拉里。现在两层都修：删掉死行，并让注册器在收到 `never started` 时只剪掉那一行、其余照常注册。1.7.11 修补丁计数：同一屏以前给出两个数，hero 写「55/67 条补丁已生效」、顶部条写「磁盘写入计数 64/76」。差在分母——hero 数的是合并后的展示行（升级链把 15 个 id 压成 6 行），顶部条数的是补丁 id；那 12 条 skipped 也从来没被渲染出来。现在口径统一到 id：`64/76`，副标题补「未生效 12 · 不适用 6 · 共 82 条」。顺带修掉 #17 在 DSH 0.2.2-rc.1 上的真锚点漂移（`editIntent` 被上游改成一行 `requirePresent` 委托）。[发行说明](docs/releases/1.7.11.md) · [1.7.10 记录](docs/releases/1.7.10.md)。
 
 1.7.10 面板不再自带版本号：徽标以前渲染的是构建期常量，1.7.9 发版漏跑 `build:client`，装的是 1.7.9、面板却咬着 1.7.8 还弹「界面与后端不一致」。现在版本一律来自后端上报的运行时事实（`plugin_version` = 实际安装版本，`panel_version` = 后端读 `client.js` 头部标记得到的界面构建版本），两者不一致才提示，界面代码里没有任何固定版本字符串。[发行说明](docs/releases/1.7.10.md) · [1.7.9 记录](docs/releases/1.7.9.md)。
 
@@ -85,7 +84,7 @@ Purge Community 是一个跑在你自己机器上的 Harness 附加组件。它�
 ### macOS
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/kingcharleslzy-ai/dsh-purge/master/scripts/install.sh -o /tmp/purge-install.sh
+curl -fsSL https://gitee.com/n-sky/dsh-purge/raw/master/scripts/install.sh -o /tmp/purge-install.sh
 sh /tmp/purge-install.sh --dry-run     # 先校验来源与 SHA256
 sh /tmp/purge-install.sh               # 确认无误再执行
 ```
@@ -104,7 +103,7 @@ sh scripts/install.sh
 ### Windows 11 · PowerShell
 
 ```powershell
-irm https://raw.githubusercontent.com/kingcharleslzy-ai/dsh-purge/master/scripts/install.ps1 -OutFile $env:TEMP\purge-install.ps1
+irm https://gitee.com/n-sky/dsh-purge/raw/master/scripts/install.ps1 -OutFile $env:TEMP\purge-install.ps1
 powershell -ExecutionPolicy Bypass -File $env:TEMP\purge-install.ps1 -DryRun
 powershell -ExecutionPolicy Bypass -File $env:TEMP\purge-install.ps1
 ```
@@ -151,7 +150,7 @@ powershell -ExecutionPolicy Bypass -File $env:TEMP\purge-install.ps1
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.11 |
+| 插件 | `dsh-purge-community` 1.7.12 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许安装，自检会标「未验证」；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |

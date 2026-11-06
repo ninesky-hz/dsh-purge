@@ -487,7 +487,7 @@ export function CommunityMaintenance() {
       h(
         "a",
         {
-          href: "https://github.com/kingcharleslzy-ai/dsh-purge/releases",
+          href: "https://gitee.com/n-sky/dsh-purge/releases",
           target: "_blank",
           rel: "noreferrer",
         },

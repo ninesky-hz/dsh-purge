@@ -9,6 +9,7 @@ import {
   migratePresetDefinition,
   backupPresetMigration,
   registerPresetDefinitions,
+  dropPresetRow,
 } from "../lib/preset-compat.js";
 
 const walk = (rows) =>
@@ -162,4 +163,92 @@ test("native activation failures unwind helpers; successful registration dispose
     "-unrestricted",
     "-" + defs[0].id,
   ]);
+});
+
+const DEAD_ROW = "@deepseek-ai/dsh-tool-subagent-control/list-agents";
+
+test("a row the host deleted is pruned and the rest of the preset still registers", async () => {
+  const before = definition();
+  const snapshot = structuredClone(before);
+  before.plugins.unshift({
+    id: "tool-subagent-list-agents",
+    name: DEAD_ROW,
+    config: { disabled: false },
+  });
+  const nested = {
+    id: "group-x",
+    name: "group",
+    group: true,
+    config: [{ id: "inner", name: DEAD_ROW, config: {} }],
+  };
+  before.plugins.push(nested);
+
+  const pruned = dropPresetRow(before.plugins, DEAD_ROW);
+  assert.equal(pruned.dropped, 2, "top-level and nested rows both go");
+  assert(!walk(pruned.rows).some((row) => row.name === DEAD_ROW));
+  assert.equal(before.plugins.length, snapshot.plugins.length + 2, "input kept");
+
+  const seen = [];
+  const reg = {
+    registered: [],
+    async register(def) {
+      this.registered.push(def);
+      return async () => {};
+    },
+    async resolve(id) {
+      const def = this.registered.at(-1);
+      const dead = walk(def.plugins).find((row) => row.name === DEAD_ROW);
+      return dead
+        ? {
+            id,
+            broken: `${dead.id} (${DEAD_ROW}): never started`,
+          }
+        : { id };
+    },
+  };
+  const release = await registerPresetDefinitions(reg, [before], {
+    onPruned: (name, count) => seen.push(`${name}#${count}`),
+  });
+  assert.deepEqual(seen, [`${DEAD_ROW}#2`]);
+  assert.equal(reg.registered.length, 2, "one retry after pruning");
+  assert(!walk(reg.registered.at(-1).plugins).some((r) => r.name === DEAD_ROW));
+  await release();
+});
+
+test("pruning never hides an unrelated activation failure", async () => {
+  const reg = {
+    async register() {
+      return async () => {};
+    },
+    async resolve(id) {
+      return { id, broken: "persona: unsupported expression" };
+    },
+  };
+  await assert.rejects(
+    registerPresetDefinitions(reg, [definition()], {
+      onPruned: () => assert.fail("must not prune"),
+    }),
+    /unsupported expression/,
+  );
+});
+
+test("bundled presets do not declare host rows that rc.1 removed", () => {
+  const gone = [
+    "@deepseek-ai/dsh-tool-subagent-control/list-agents",
+    "@deepseek-ai/dsh-workflow-worker-thread",
+  ];
+  for (const id of ["redteam", "unrestricted"]) {
+    const rows = walk(readPresetDefinition(id, bundledPresetDir()).plugins);
+    for (const name of gone)
+      assert(
+        !rows.some((row) => row.name === name),
+        `${id} still lists ${name}`,
+      );
+  }
+  assert(
+    walk(readPresetDefinition("redteam", bundledPresetDir()).plugins).some(
+      (row) => row.name === "@deepseek-ai/dsh-tool-subagent-control",
+    ),
+    "list_agents still comes from the control package itself",
+  );
 });

@@ -27,7 +27,7 @@ function fixture(t){const root=fs.mkdtempSync(path.join(os.tmpdir(),'purge-zip-c
 test('valid legacy archive is pinned to commit and all files verified before use',async t=>{
   const root=fixture(t);let url;
   const r=await downloadPluginArchive('master',{tmpDir:root},{json,fetch:async u=>{url=u;return{arrayBuffer:async()=>zip(Object.fromEntries(Object.entries(files).map(([n,b])=>[`repo-${sha}/${n}`,b])))};}});
-  assert(url.endsWith('/'+sha));assert.equal(r.verifiedFiles,2);assert.equal(r.sha,sha);
+  assert(url.includes('/'+sha), 'archive URL must pin the verified commit');assert.equal(r.verifiedFiles,2);assert.equal(r.sha,sha);
   if(process.platform!=='win32')assert.equal(fs.statSync(path.join(r.unpacked,'bin/run.js')).mode&0o777,0o755);
 });
 test('tampered, extra, missing, or traversal files cannot become an installable archive',async t=>{

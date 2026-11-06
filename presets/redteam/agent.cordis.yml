@@ -296,10 +296,6 @@
       name: '@deepseek-ai/dsh-tool-subagent-control'
       disabled: false
 
-    - id: tool-subagent-list-agents
-      name: '@deepseek-ai/dsh-tool-subagent-control/list-agents'
-      disabled: false
-
     - id: tool-subagent
       name: '@deepseek-ai/dsh-tool-subagent'
       disabled: false
@@ -347,13 +343,6 @@
         toolName: subagent_claude_code
         backgroundMode: one-shot
         maxDepth: provider-managed
-
-    - id: workflow-worker-thread
-      name: '@deepseek-ai/dsh-workflow-worker-thread'
-      # web 配置通常不装 worker-thread 引擎；未启动会导致整个预设 broken、模式下拉被过滤。
-      disabled: true
-      config:
-        provider: spawn
 
     - id: workflow-ptc
       name: '@deepseek-ai/dsh-workflow-ptc'

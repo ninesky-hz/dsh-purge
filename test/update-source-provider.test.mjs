@@ -14,20 +14,25 @@ import {
   tagsUrl,
   updateProvider,
 } from "../lib/update-source.js";
-import { UPDATE_HOSTS, githubHeaders } from "../lib/update-http.js";
+import { UPDATE_HOSTS, githubHeaders, httpFailure } from "../lib/update-http.js";
 
-test("默认仍是上游 GitHub 源", () => {
+test("默认源是我们自己的 Gitee 仓库", () => {
+  assert.equal(DEFAULT_REPOSITORY, "n-sky/dsh-purge");
   assert.equal(releaseRepository({}), DEFAULT_REPOSITORY);
-  assert.equal(updateProvider({}), "github");
-  assert.equal(listReleasesUrl({}), `https://api.github.com/repos/${DEFAULT_REPOSITORY}/releases?per_page=20`);
-  assert.equal(sourceLabel({}), `GitHub ${DEFAULT_REPOSITORY}`);
+  assert.equal(updateProvider({}), "gitee");
+  assert.equal(listReleasesUrl({}), `https://gitee.com/api/v5/repos/${DEFAULT_REPOSITORY}/releases?per_page=20`);
+  assert.equal(sourceLabel({}), `Gitee ${DEFAULT_REPOSITORY}`);
+  assert.match(sourceLabel({}), /n-sky\/dsh-purge/);
 });
 
-test("owner/repo 形式只换仓库，不换平台", () => {
+test("owner/repo 形式只换仓库，平台沿用默认（仍可用显式变量改回 GitHub）", () => {
   const env = { PURGE_UPDATE_REPO: "n-sky/dsh-purge" };
   assert.equal(releaseRepository(env), "n-sky/dsh-purge");
-  assert.equal(updateProvider(env), "github");
-  assert.equal(listReleasesUrl(env), "https://api.github.com/repos/n-sky/dsh-purge/releases?per_page=20");
+  assert.equal(updateProvider(env), "gitee");
+  assert.equal(listReleasesUrl(env), "https://gitee.com/api/v5/repos/n-sky/dsh-purge/releases?per_page=20");
+  const github = { PURGE_UPDATE_REPO: "owner/repo", PURGE_UPDATE_PROVIDER: "github" };
+  assert.equal(updateProvider(github), "github");
+  assert.equal(listReleasesUrl(github), "https://api.github.com/repos/owner/repo/releases?per_page=20");
 });
 
 test("仓库地址里的域名推断出 Gitee", () => {
@@ -71,4 +76,12 @@ test("传输层接受 Gitee 主机并按 provider 选择认证方式", () => {
 
 test("scp 形式的地址也能识别 Gitee", () => {
   assert.deepEqual(normalizeRepository("git@gitee.com:n-sky/dsh-purge.git"), { repo: "n-sky/dsh-purge", provider: "gitee" });
+});
+
+test("HTTP 错误文案跟随活动 provider，不写死 GitHub", () => {
+  assert.equal(httpFailure(404, {}, { env: {} }), "Gitee 资源不存在或无访问权限（HTTP 404）");
+  assert.equal(httpFailure(404, {}, { env: { PURGE_UPDATE_PROVIDER: "github" } }), "GitHub 资源不存在或无访问权限（HTTP 404）");
+  assert.match(httpFailure(401, {}, { env: {} }), /Gitee 认证失败/);
+  assert.match(httpFailure(403, { "x-ratelimit-remaining": "0" }, { env: {} }), /Gitee API 额度耗尽.*GITEE_TOKEN/);
+  assert.match(httpFailure(403, { "x-ratelimit-remaining": "0" }, { env: { PURGE_UPDATE_PROVIDER: "github" } }), /GitHub API 额度耗尽.*GITHUB_TOKEN/);
 });

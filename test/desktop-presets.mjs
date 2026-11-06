@@ -6,6 +6,7 @@ import os from "node:os";
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
 import { pathToFileURL, fileURLToPath } from "node:url";
+import { removeTreeNoFollowSync } from "../lib/remove-tree.js";
 const base = process.env.PURGE_TEST_HOST;
 if (!base || !process.versions.electron)
   throw Error("Run with the actual Desktop Electron and PURGE_TEST_HOST");
@@ -194,5 +195,9 @@ try {
   );
 } finally {
   if (ctx) await ctx.fiber.dispose();
-  fs.rmSync(home, { recursive: true, force: true });
+  // The temp profile holds a junction into the live host's @deepseek-ai. A raw
+  // recursive rm follows it on Windows and empties the real package directory
+  // (this destroyed an installed host on 2026-11-06). Unlink the link, never
+  // recurse through it.
+  removeTreeNoFollowSync(home);
 }
