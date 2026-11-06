@@ -1,3 +1,16 @@
+# 1.7.11
+
+面板同一个屏幕给出两个补丁数：hero 写「55/67 条补丁已生效」，顶部条写「磁盘写入计数 64/76」。差在分母——hero 数的是**展示行**，顶部条数的是**补丁 id**。升级链合并显示把 15 个 id 压成 6 行，所以 76 条适用补丁只剩 67 行、64 条已应用只剩 55 行。本版把口径统一到 id，并把从来没人渲染的「12 条 skipped」放到副标题里。
+
+- **统一口径**：新增 `packages/purge-panel/src/shared/patch-count.js`（纯逻辑、可单测）；`patchCounters()` 优先用后端 `patches_*`，缺失才自己数。hero / 补丁明细 / 每组表头 / 顶部条同源：**64/76**，副标题「未生效 12 · 不适用 6 · 共 82 条」。
+- **合并行保留**：升级链仍按 `#1–3` 展示，行首 id 列用 `idRangeLabel()`；计数不再按行数。
+- **接口**：`/dsh-purge/status` 的 `patches_pending/skipped/ready/na` 回到 id 口径，另加 `display_patches_applied` / `display_patches_total`；文本报表同步。
+- **#17 锚点漂移**：DSH 0.2.2-rc.1 把 `editIntent` 改成一行 `requirePresent` 委托，旧锚点失效、`writeIntent` 又已带 marker，于是整条判 skipped。新变体只锚委托行；`deleteIntent` 与 `requirePresent(...,"delete")` 不动。
+- **#40 写进去却认不出**：rc.1 分支写的是 `// [dsh-purge] complete prompt keeps inject`，而 `markers` 只收了 `… keeps inject + agent-instructions` 这一条更长的，`patchApplied()` 于是判 false —— 补丁实际已落盘，面板却算 skipped。补上短形式标记；实测本机应用后 74/76。
+- **回归**：`test/patch-count.test.mjs` 复刻事故（注意 `ALL_PATCHES` 的 id 不连续，`#85/#86` 已被 `#90` 取代）；`test/patch-anchors.test.mjs` 加两条 #17 用例，并在 rc.1 的 #40 用例里钉住「写入的标记必须同时出现在 markers」。`npm test` 与 1.7.10 基线逐条一致（本机 22 条 Windows 环境失败，改动前后同名同数）。
+- **升级**：本机原为 1.7.7 的旧安装（1.7.7 缺 rc.1 的 10 条变体）。已部署 1.7.11 并应用：磁盘上 74/76 生效，剩 #76（用户自定义预设，可选）与 #80（minimal 预设可选）仍 skipped；重启后仍需「应用」+ 完整退出重开才加载。
+
+[完整说明](docs/releases/1.7.11.md)
 # 1.7.10
 
 面板不再自带版本号。以前徽标渲染的是构建期常量，1.7.9 发版漏跑 `build:client`，装的是 1.7.9、面板却咬着 1.7.8，还常驻一条「官方版本 1.7.9；界面 1.7.8」的黄条。现在版本一律来自后端上报的运行时事实，界面代码里没有任何固定版本字符串。

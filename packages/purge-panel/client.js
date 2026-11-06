@@ -9002,6 +9002,9 @@ var zh = {
   "metric.pendingShort": "\u5F85\u5904\u7406 {n}",
   "metric.unmatchedShort": "\u6CA1\u5BF9\u4E0A {n}",
   "metric.skipShort": "\u8DF3\u8FC7 {n}",
+  "metric.notAppliedShort": "\u672A\u751F\u6548 {n}",
+  "metric.naShort": "\u4E0D\u9002\u7528 {n}",
+  "metric.allShort": "\u5171 {n} \u6761",
   "metric.unlocated.count": "\u2014",
   "metric.shim": "shim",
   "metric.shim.na": "\u672C\u7AEF\u4E0D\u9700\u8981",
@@ -9354,6 +9357,9 @@ var en = {
   "metric.pendingShort": "Pending {n}",
   "metric.unmatchedShort": "No match {n}",
   "metric.skipShort": "Skipped {n}",
+  "metric.notAppliedShort": "Not applied {n}",
+  "metric.naShort": "N/A {n}",
+  "metric.allShort": "{n} total",
   "metric.unlocated.count": "\u2014",
   "metric.shim": "shim",
   "metric.shim.na": "Not needed here",
@@ -9925,6 +9931,94 @@ function skillsApi(op, extra) {
   });
 }
 
+// src/shared/patch-count.js
+var LAYER_GROUP = {
+  \u63D0\u793A\u8BCD: "prompt",
+  \u4EE3\u7801: "code",
+  \u5DE5\u5177: "tools",
+  "0.1.5 \u517C\u5BB9": "compat",
+  "0.2.0 \u517C\u5BB9": "dsh20"
+};
+var GROUP_ORDER = ["prompt", "code", "tools", "compat", "dsh20"];
+function layerKeyOf(layer) {
+  return LAYER_GROUP[layer] || "code";
+}
+function patchIdRowsOf(state) {
+  if (!state || !state.ai_base) return [];
+  const statuses = state.patch_status || {};
+  const layerOf = /* @__PURE__ */ new Map();
+  for (const p of Array.isArray(state.patches) ? state.patches : []) {
+    const ids = Array.isArray(p.ids) && p.ids.length ? p.ids : [p.id];
+    for (const raw of ids) {
+      const id = Number(raw);
+      if (Number.isFinite(id)) layerOf.set(id, p.layer || "");
+    }
+  }
+  const rows = [];
+  for (const [raw, st] of Object.entries(statuses)) {
+    const id = Number(raw);
+    if (!Number.isFinite(id)) continue;
+    if (!st || st === "na") continue;
+    rows.push({ id, st, layer: layerOf.get(id) || "" });
+  }
+  if (rows.length) return rows.sort((a, b) => a.id - b.id);
+  return (Array.isArray(state.patches) ? state.patches : []).flatMap((p) => {
+    const ids = Array.isArray(p.ids) && p.ids.length ? p.ids : [p.id];
+    const st = p.status || "missing_file";
+    return ids.map(Number).filter((id) => Number.isFinite(id)).filter(() => st !== "na").map((id) => ({ id, st, layer: p.layer || "" }));
+  }).sort((a, b) => a.id - b.id);
+}
+function patchRowsOf(state) {
+  if (!state || !state.ai_base) return [];
+  const fromList = Array.isArray(state.patches) ? state.patches : null;
+  if (!fromList) return patchIdRowsOf(state);
+  return fromList.map((p) => {
+    const id = Number(p.id);
+    const ids = (Array.isArray(p.ids) && p.ids.length ? p.ids : [p.id]).map(Number).filter((n) => Number.isFinite(n));
+    return {
+      id,
+      ids: ids.length ? ids : [id],
+      st: p.status || "missing_file",
+      layer: p.layer || ""
+    };
+  }).filter((r) => r.st && r.st !== "na" && Number.isFinite(r.id));
+}
+function tallyPatches(rows) {
+  const out = { applied: 0, pending: 0, unmatched: 0, skipped: 0, total: 0 };
+  for (const row of rows || []) {
+    out.total += 1;
+    if (row.st === "applied" || row.st === "already") out.applied += 1;
+    else if (row.st === "pending") out.pending += 1;
+    else if (row.st === "unmatched") out.unmatched += 1;
+    else out.skipped += 1;
+  }
+  return out;
+}
+var numOr = (value, fallback) => typeof value === "number" && Number.isFinite(value) ? value : fallback;
+function patchCounters(state) {
+  const located = !!(state && state.ai_base);
+  const statuses = state && state.patch_status || {};
+  const tally = tallyPatches(located ? patchIdRowsOf(state) : []);
+  const naFallback = Object.values(statuses).filter((st) => st === "na").length;
+  const total = located ? numOr(state.patches_total, tally.total) : 0;
+  const applied = located ? numOr(state.patches_applied, tally.applied) : 0;
+  const pending = located ? numOr(state.patches_pending, tally.pending) : 0;
+  const na = located ? numOr(state.patches_na, naFallback) : 0;
+  const all = located ? numOr(state.patches_total_all, total + na) : 0;
+  return {
+    located,
+    applied,
+    pending,
+    na,
+    all,
+    total,
+    // 分母只算本机适用的；没应用、也没待应用的都归到「未生效」，不猜具体原因。
+    notApplied: Math.max(0, total - applied - pending),
+    skipped: tally.skipped,
+    unmatched: tally.unmatched
+  };
+}
+
 // src/components/patch-status.js
 function statusKind(st) {
   if (st === "applied" || st === "already") return "ok";
@@ -9946,62 +10040,41 @@ function statusLabel(st, t) {
   if (st === "na") return t("status.na");
   return st || t("unknown");
 }
-var LAYER_GROUP = {
-  \u63D0\u793A\u8BCD: "prompt",
-  \u4EE3\u7801: "code",
-  \u5DE5\u5177: "tools",
-  "0.1.5 \u517C\u5BB9": "compat",
-  "0.2.0 \u517C\u5BB9": "dsh20"
-};
-var GROUP_ORDER = ["prompt", "code", "tools", "compat", "dsh20"];
-function patchRowsOf(state) {
-  if (!state || !state.ai_base) return [];
-  const fromList = Array.isArray(state.patches) ? state.patches : null;
-  const rows = fromList ? fromList.map((p) => ({
-    id: Number(p.id),
-    st: p.status || "missing_file",
-    layer: p.layer || ""
-  })) : Object.keys(state.patch_status || {}).map((id) => ({
-    id: Number(id),
-    st: state.patch_status[id],
-    layer: ""
-  }));
-  return rows.filter((r) => r.st && r.st !== "na" && Number.isFinite(r.id));
-}
-function tallyPatches(rows) {
-  const out = { applied: 0, pending: 0, unmatched: 0, skipped: 0, total: 0 };
-  for (const row of rows || []) {
-    out.total += 1;
-    if (row.st === "applied" || row.st === "already") out.applied += 1;
-    else if (row.st === "pending") out.pending += 1;
-    else if (row.st === "unmatched") out.unmatched += 1;
-    else out.skipped += 1;
-  }
-  return out;
+function idRangeLabel(ids) {
+  const list = (ids || []).filter((n) => Number.isFinite(n));
+  if (!list.length) return "";
+  const min = Math.min(...list);
+  const max = Math.max(...list);
+  return min === max ? "#" + min : "#" + min + "\u2013" + max;
 }
 function PatchGroups({ state }) {
   const t = useT();
   const [open, setOpen] = useState({});
   if (!state || !state.patch_status)
     return h("div", { className: "dshpp-skel", style: { height: 120 } });
-  const located = !!state.ai_base;
-  if (!located) return null;
-  const grouped = /* @__PURE__ */ new Map();
+  if (!state.ai_base) return null;
+  const rowGroups = /* @__PURE__ */ new Map();
   for (const row of patchRowsOf(state)) {
-    const key = LAYER_GROUP[row.layer] || "code";
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(row);
+    const key = layerKeyOf(row.layer);
+    if (!rowGroups.has(key)) rowGroups.set(key, []);
+    rowGroups.get(key).push(row);
   }
-  return GROUP_ORDER.filter((key) => grouped.has(key)).map((key) => {
-    const rows = grouped.get(key).slice().sort((a, b) => a.id - b.id);
-    if (!rows.length) return null;
-    const tally = tallyPatches(rows);
+  const idGroups = /* @__PURE__ */ new Map();
+  for (const row of patchIdRowsOf(state)) {
+    const key = layerKeyOf(row.layer);
+    if (!idGroups.has(key)) idGroups.set(key, []);
+    idGroups.get(key).push(row);
+  }
+  return GROUP_ORDER.filter((key) => rowGroups.has(key)).map((key) => {
+    const rows = rowGroups.get(key).slice().sort((a, b) => a.id - b.id);
+    const tally = tallyPatches(idGroups.get(key));
     const notes = [];
     if (tally.pending)
       notes.push(t("metric.pendingShort", { n: tally.pending }));
     if (tally.unmatched)
       notes.push(t("metric.unmatchedShort", { n: tally.unmatched }));
-    if (tally.skipped) notes.push(t("metric.skipShort", { n: tally.skipped }));
+    if (tally.skipped > 0 && tally.skipped !== tally.unmatched)
+      notes.push(t("metric.skipShort", { n: tally.skipped }));
     const expanded = !!open[key];
     return h(
       "div",
@@ -10042,7 +10115,7 @@ function PatchGroups({ state }) {
             (r) => h(
               "tr",
               { key: r.id },
-              h("td", { className: "dshpp-id" }, "#" + r.id),
+              h("td", { className: "dshpp-id" }, idRangeLabel(r.ids)),
               h("td", null, t("patch." + r.id)),
               h("td", null, h(Pill, { value: r.st }))
             )
@@ -11513,17 +11586,19 @@ function PurgifySection({ page = "status", onStatus } = {}) {
   const desktopLikely = hostSurface === "desktop" || clientGuessSurface() === "desktop";
   const sealedReady = !located && desktopLikely && !!(s && (s.asar_still_sealed || s.desktop_exe || s.desktop_install));
   const patchesLost = !located && !!(s && s.patches_lost);
-  const tally = located ? tallyPatches(patchRowsOf(s)) : { applied: 0, pending: 0, unmatched: 0, skipped: 0, total: 0 };
-  const total = tally.total;
-  const applied = tally.applied;
+  const counters = patchCounters(s);
+  const total = counters.total;
+  const applied = counters.applied;
   const pct = located && total ? Math.round(applied / total * 100) : 0;
   const metricNotes = [];
-  if (tally.pending)
-    metricNotes.push(t("metric.pendingShort", { n: tally.pending }));
-  if (tally.unmatched)
-    metricNotes.push(t("metric.unmatchedShort", { n: tally.unmatched }));
-  if (tally.skipped)
-    metricNotes.push(t("metric.skipShort", { n: tally.skipped }));
+  if (counters.pending)
+    metricNotes.push(t("metric.pendingShort", { n: counters.pending }));
+  if (counters.notApplied)
+    metricNotes.push(t("metric.notAppliedShort", { n: counters.notApplied }));
+  if (counters.na)
+    metricNotes.push(t("metric.naShort", { n: counters.na }));
+  if (counters.all && counters.all !== total)
+    metricNotes.push(t("metric.allShort", { n: counters.all }));
   const versions = updateInfo && updateInfo.versions || [];
   const channelNow = updateInfo && updateInfo.channel || channel || "stable";
   const localVer = s && s.plugin_version || updateInfo && updateInfo.localVersion || "";
@@ -11631,17 +11706,17 @@ function PurgifySection({ page = "status", onStatus } = {}) {
           "div",
           { className: "dshpp-hero-state" },
           h("i", {
-            className: "dshpp-dot " + (!located ? "is-warn" : patchBusy ? "" : s?.asar_still_sealed || tally.pending ? "is-warn" : "is-ok")
+            className: "dshpp-dot " + (!located ? "is-warn" : patchBusy ? "" : s?.asar_still_sealed || counters.pending ? "is-warn" : "is-ok")
           }),
           h(
             "b",
             null,
-            !located ? sealedReady ? "\u5BBF\u4E3B\u8FD8\u6CA1\u89E3\u5F00\uFF1A\u70B9\u300C\u5E94\u7528\u300D" : "\u672A\u5B9A\u4F4D\u5230\u5BBF\u4E3B\uFF1A\u70B9\u300C\u5E94\u7528\u300D\u91CD\u8BD5" : s?.asar_still_sealed ? `${applied}/${total} \u6761\u78C1\u76D8\u8865\u4E01\uFF08\u9000\u51FA\u91CD\u5F00\u540E\u52A0\u8F7D\uFF09` : tally.pending ? `\u8FD8\u6709 ${tally.pending} \u6761\u5F85\u5E94\u7528` : `${applied}/${total} \u6761\u8865\u4E01\u5DF2\u751F\u6548`
+            !located ? sealedReady ? "\u5BBF\u4E3B\u8FD8\u6CA1\u89E3\u5F00\uFF1A\u70B9\u300C\u5E94\u7528\u300D" : "\u672A\u5B9A\u4F4D\u5230\u5BBF\u4E3B\uFF1A\u70B9\u300C\u5E94\u7528\u300D\u91CD\u8BD5" : s?.asar_still_sealed ? `${applied}/${total} \u6761\u78C1\u76D8\u8865\u4E01\uFF08\u9000\u51FA\u91CD\u5F00\u540E\u52A0\u8F7D\uFF09` : counters.pending ? `\u8FD8\u6709 ${counters.pending} \u6761\u5F85\u5E94\u7528` : `${applied}/${total} \u6761\u8865\u4E01\u5DF2\u751F\u6548`
           ),
           h(
             "span",
             { className: "dshpp-hero-sub" },
-            t("surface." + hostSurface)
+            [t("surface." + hostSurface), ...metricNotes].filter(Boolean).join(" \xB7 ")
           )
         ),
         h(
@@ -11730,7 +11805,7 @@ function PurgifySection({ page = "status", onStatus } = {}) {
           h(
             "b",
             null,
-            s && s.ai_base ? `${applied}/${total} \u5DF2\u5E94\u7528` : "\u672A\u5B9A\u4F4D\u5BBF\u4E3B"
+            s && s.ai_base ? `${applied}/${total} \u5DF2\u5E94\u7528` + (counters.notApplied ? ` \xB7 ${counters.notApplied} \u672A\u751F\u6548` : "") + (counters.na ? ` \xB7 ${counters.na} \u4E0D\u9002\u7528` : "") + (counters.all ? `\uFF08\u5171 ${counters.all} \u6761\uFF09` : "") : "\u672A\u5B9A\u4F4D\u5BBF\u4E3B"
           )
         ),
         h(PatchGroups, { state: s })
@@ -13019,17 +13094,18 @@ function StatusStrip({ info }) {
     h(
       "span",
       { className: "dshpp-strip-item" },
-      "\u78C1\u76D8\u5199\u5165\u8BA1\u6570 ",
+      "\u8865\u4E01 ",
       h(
         "b",
         null,
-        `${info?.patches_applied ?? "?"}/${info?.patches_total ?? "?"}`,
-        info?.patches_na > 0 ? ` \xB7 ${info.patches_na} \u6761\u672C\u673A\u4E0D\u9002\u7528` : ""
+        `${info?.patches_applied ?? "?"}/${info?.patches_total ?? "?"} \u5DF2\u751F\u6548`,
+        info?.patches_na > 0 ? ` \xB7 ${info.patches_na} \u6761\u4E0D\u9002\u7528` : "",
+        info?.patches_total_all > 0 ? ` \xB7 \u5171 ${info.patches_total_all} \u6761` : ""
       ),
       h(
         HelpTip,
         { title: "\u5BBF\u4E3B\u8865\u4E01" },
-        `\u5B9E\u9645\u5199\u8FDB DSH \u5BBF\u4E3B\u4EE3\u7801\u7684\u8865\u4E01\u6761\u6570\uFF08\u5206\u6BCD\u53EA\u7B97\u672C\u673A\u9002\u7528\u7684\uFF09\u3002\u5168\u90E8\u8865\u4E01 ${info?.patches_total_all ?? "?"} \u6761\uFF0C\u5176\u4E2D ${info?.patches_na ?? 0} \u6761\u76EE\u6807\u63D2\u4EF6/\u9884\u8BBE\u672A\u5B89\u88C5\uFF1B\u5F85\u5E94\u7528\u8868\u793A\u951A\u70B9\u8FD8\u5728\u3001\u8FD8\u6CA1\u5199\u5165\uFF1B\u6CA1\u5BF9\u4E0A\u8868\u793A\u5BBF\u4E3B\u6E90\u7801\u5DF2\u53D8\uFF0C\u9700\u8981\u91CD\u65B0\u5B9A\u4F4D\u951A\u70B9\u3002`
+        `\u4E00\u6761\u8865\u4E01\u7B97\u4E00\u4E2A id\uFF0C\u5206\u6BCD\u53EA\u7B97\u672C\u673A\u9002\u7528\u7684\u3002\u5168\u90E8\u8865\u4E01 ${info?.patches_total_all ?? "?"} \u6761\uFF0C\u5176\u4E2D ${info?.patches_na ?? 0} \u6761\u76EE\u6807\u63D2\u4EF6/\u9884\u8BBE\u672A\u5B89\u88C5\uFF1B\u672A\u751F\u6548\u8868\u793A\u5BBF\u4E3B\u6E90\u7801\u5DF2\u53D8\u3001\u951A\u70B9\u6CA1\u5BF9\u4E0A\uFF0C\u9700\u8981\u91CD\u65B0\u5B9A\u4F4D\uFF08\u89C1\u300C\u8865\u4E01\u660E\u7EC6\u300D\uFF09\uFF1B\u5F85\u5E94\u7528\u8868\u793A\u951A\u70B9\u8FD8\u5728\u3001\u8FD8\u6CA1\u5199\u5165\u3002`
       )
     ),
     h(

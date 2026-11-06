@@ -9,7 +9,9 @@
 [![Release](https://img.shields.io/github/v/release/kingcharleslzy-ai/dsh-purge?label=release)](https://github.com/kingcharleslzy-ai/dsh-purge/releases)
 [![Checks](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml/badge.svg)](https://github.com/kingcharleslzy-ai/dsh-purge/actions/workflows/community.yml)
 
-当前版本 **1.7.10** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.11** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+
+1.7.11 修补丁计数：同一屏以前给出两个数，hero 写「55/67 条补丁已生效」、顶部条写「磁盘写入计数 64/76」。差在分母——hero 数的是合并后的展示行（升级链把 15 个 id 压成 6 行），顶部条数的是补丁 id；那 12 条 skipped 也从来没被渲染出来。现在口径统一到 id：`64/76`，副标题补「未生效 12 · 不适用 6 · 共 82 条」。顺带修掉 #17 在 DSH 0.2.2-rc.1 上的真锚点漂移（`editIntent` 被上游改成一行 `requirePresent` 委托）。[发行说明](docs/releases/1.7.11.md) · [1.7.10 记录](docs/releases/1.7.10.md)。
 
 1.7.10 面板不再自带版本号：徽标以前渲染的是构建期常量，1.7.9 发版漏跑 `build:client`，装的是 1.7.9、面板却咬着 1.7.8 还弹「界面与后端不一致」。现在版本一律来自后端上报的运行时事实（`plugin_version` = 实际安装版本，`panel_version` = 后端读 `client.js` 头部标记得到的界面构建版本），两者不一致才提示，界面代码里没有任何固定版本字符串。[发行说明](docs/releases/1.7.10.md) · [1.7.9 记录](docs/releases/1.7.9.md)。
 
@@ -149,7 +151,7 @@ powershell -ExecutionPolicy Bypass -File $env:TEMP\purge-install.ps1
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.10 |
+| 插件 | `dsh-purge-community` 1.7.11 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许安装，自检会标「未验证」；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |

@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.10** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.5 同样通过）
+> 当前版本：**1.7.11** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.5 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -131,7 +131,7 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.10 |
+| 插件 | `dsh-purge-community` 1.7.11 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
@@ -441,3 +441,14 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - **校验**：`packages/purge-panel/test/version-badge.test.mjs` 断言徽标跟随后端版本、drift 只在真不一致时触发、bundle 头部 marker 等于 `package.json` 版本、bundle 内不再出现「社区版 1.x.y」这类常量。
 - **顺手修**：`packages/purge-panel/test/maintenance.test.cjs` 里按钮标签还停在重构前的「刷新备份列表」/「暂无备份」，与 `maintenance.js`（「刷新」/「还没有本机备份」）对不上，单测一直是红的；本版同步标签。
 - 仍需「应用」+ 完整退出重开：板面代码是插件运行时模块，改完不重启不生效。
+
+## 1.7.11：补丁计数统一到 id
+
+- **症状**：面板 hero 写「55/67 条补丁已生效」，顶部条写「磁盘写入计数 64/76」。两个数都对，但分母不同：hero 数的是**展示行**（升级链合并：`#1–3`、`#5/#11/#12`、`#8–10`、`#45/#46`、`#83/#84`、`#87/#88` —— 6 组把 15 个 id 压成 6 行），顶部条数的是**补丁 id**。所以 76 条适用补丁只有 67 行、64 条已应用只有 55 行。顺带暴露另一个洞：12 条 skipped 在界面上完全没有出口（`metricNotes` 算了但从未渲染）。
+- **口径**：新增 `packages/purge-panel/src/shared/patch-count.js`（不 import react，可被 node 直接测）。`patchIdRowsOf()` 以 `patch_status` 为权威逐 id 展开；`patchRowsOf()` 仍返回合并展示行（每行带 `ids`）；`patchCounters()` **优先用后端 `patches_*`**，缺失才自己数，`na` 缺失时按 `patch_status` 里 `"na"` 数量兜底。hero / 明细标题 / 每组表头 / 顶部条同源 → `64/76`，副标题「未生效 12 · 不适用 6 · 共 82 条」。
+- **合并行保留**：`PatchGroups` 仍按升级链合并，行首 id 列用 `idRangeLabel()`（`#1–3`），但每组表头计数取 `tallyPatches(idGroups.get(key))`，即 id 口径。
+- **接口**：`/dsh-purge/status` 的 `patches_pending/skipped/ready/na` 回到 id 口径（不再与 `display_*` 混用），另加 `display_patches_applied` / `display_patches_total`；文本版 status 报表同步为 `64/76 applied, 12 skipped, 6 n/a (82 total)`。
+- **#17 锚点漂移**：rc.1 把 `dsh-fs-observation-policy` 的 `editIntent` 改成一行 `return this.requirePresent(target, actor, "edit")`，旧锚点（整段 `FsError` 函数体）匹配不到，`writeIntent` 又已带 marker → `applied=0, notFound=0` → `rollupPatchStatus` 落到 `skipped`。新变体只锚那行委托改成 `return void 0;`；`deleteIntent` 与 `requirePresent(...,"delete")` **保持不动**。
+- **#40 写进去却认不出**：rc.1 分支写的是 `// [dsh-purge] complete prompt keeps inject`，而 `markers` 只收了 `… keeps inject + agent-instructions` 那条更长的，`patchApplied()` 于是判 false —— 补丁已落盘、面板仍算 skipped。补上短形式标记，实测应用后 74/76。
+- **回归**：`packages/purge-panel/test/patch-count.test.mjs` 用 `ALL_PATCHES` 真实 id 复刻事故（**注意 id 不连续：`#85/#86` 已被 `#90` 取代移除**，用 `Array.from({length:82})` 会算出 69 行）；`test/patch-anchors.test.mjs` 加两条 #17 用例（rc.1 委托形态 + 旧宿主 inline 形态），并在 rc.1 的 #40 用例里断言「写入的标记必须出现在 markers 里」。
+- **升级**：本机原为 1.7.7（`update-status.json` 与实包一致，`applied.json` 却残留 1.7.9），1.7.7 缺 rc.1 的 10 条变体（#14/#17/#40/#54/#60/#62/#67/#74/#82/#91）→ 必然 skipped。已部署 1.7.11 并应用：磁盘 74/76 生效，#76（用户自定义预设）与 #80（minimal 预设）仍 skipped，均为可选。加载仍需完整退出重开。

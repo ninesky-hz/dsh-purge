@@ -17,12 +17,8 @@ import {
   responseNeedsPrompt,
   bothInjectEmpty,
 } from "../api/client.js";
-import {
-  shimKind,
-  patchRowsOf,
-  tallyPatches,
-  PatchGroups,
-} from "./patch-status.js";
+import { shimKind, PatchGroups } from "./patch-status.js";
+import { patchCounters } from "../shared/patch-count.js";
 import { noticeNode, Btn } from "./primitives.js";
 import { HooksDenySection } from "./advanced.js";
 import { RestartAsk, restartDsh, detectHostTheme } from "./restart.js";
@@ -703,19 +699,20 @@ export function PurgifySection({ page = "status", onStatus } = {}) {
     desktopLikely &&
     !!(s && (s.asar_still_sealed || s.desktop_exe || s.desktop_install));
   const patchesLost = !located && !!(s && s.patches_lost);
-  const tally = located
-    ? tallyPatches(patchRowsOf(s))
-    : { applied: 0, pending: 0, unmatched: 0, skipped: 0, total: 0 };
-  const total = tally.total;
-  const applied = tally.applied;
+  // 计数一律走 id 口径（patch-count.js）：展示行会合并升级链，用它算总数会少报。
+  const counters = patchCounters(s);
+  const total = counters.total;
+  const applied = counters.applied;
   const pct = located && total ? Math.round((applied / total) * 100) : 0;
   const metricNotes = [];
-  if (tally.pending)
-    metricNotes.push(t("metric.pendingShort", { n: tally.pending }));
-  if (tally.unmatched)
-    metricNotes.push(t("metric.unmatchedShort", { n: tally.unmatched }));
-  if (tally.skipped)
-    metricNotes.push(t("metric.skipShort", { n: tally.skipped }));
+  if (counters.pending)
+    metricNotes.push(t("metric.pendingShort", { n: counters.pending }));
+  if (counters.notApplied)
+    metricNotes.push(t("metric.notAppliedShort", { n: counters.notApplied }));
+  if (counters.na)
+    metricNotes.push(t("metric.naShort", { n: counters.na }));
+  if (counters.all && counters.all !== total)
+    metricNotes.push(t("metric.allShort", { n: counters.all }));
 
   const versions = (updateInfo && updateInfo.versions) || [];
   const channelNow = (updateInfo && updateInfo.channel) || channel || "stable";
@@ -841,7 +838,7 @@ export function PurgifySection({ page = "status", onStatus } = {}) {
                 ? "is-warn"
                 : patchBusy
                   ? ""
-                  : s?.asar_still_sealed || tally.pending
+                  : s?.asar_still_sealed || counters.pending
                     ? "is-warn"
                     : "is-ok"),
           }),
@@ -854,14 +851,16 @@ export function PurgifySection({ page = "status", onStatus } = {}) {
                 : "未定位到宿主：点「应用」重试"
               : s?.asar_still_sealed
                 ? `${applied}/${total} 条磁盘补丁（退出重开后加载）`
-                : tally.pending
-                  ? `还有 ${tally.pending} 条待应用`
+                : counters.pending
+                  ? `还有 ${counters.pending} 条待应用`
                   : `${applied}/${total} 条补丁已生效`,
           ),
           h(
             "span",
             { className: "dshpp-hero-sub" },
-            t("surface." + hostSurface),
+            [t("surface." + hostSurface), ...metricNotes]
+              .filter(Boolean)
+              .join(" · "),
           ),
         ),
         h(
@@ -950,7 +949,14 @@ export function PurgifySection({ page = "status", onStatus } = {}) {
           h(
             "b",
             null,
-            s && s.ai_base ? `${applied}/${total} 已应用` : "未定位宿主",
+            s && s.ai_base
+              ? `${applied}/${total} 已应用` +
+                  (counters.notApplied
+                    ? ` · ${counters.notApplied} 未生效`
+                    : "") +
+                  (counters.na ? ` · ${counters.na} 不适用` : "") +
+                  (counters.all ? `（共 ${counters.all} 条）` : "")
+              : "未定位宿主",
           ),
         ),
         h(PatchGroups, { state: s }),

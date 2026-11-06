@@ -1,7 +1,17 @@
 // UI derived from YuJunZhiXue/dsh-purge 1.1.71 (MIT). See LICENSE.
 import { h, useState } from "../shared/react.js";
 import { useT } from "../shared/locale.js";
+import {
+  GROUP_ORDER,
+  LAYER_GROUP,
+  layerKeyOf,
+  patchIdRowsOf,
+  patchRowsOf,
+  tallyPatches,
+} from "../shared/patch-count.js";
 import { Pill } from "./primitives.js";
+
+export { GROUP_ORDER, LAYER_GROUP, patchRowsOf, tallyPatches };
 
 export function statusKind(st) {
   if (st === "applied" || st === "already") return "ok";
@@ -37,43 +47,13 @@ export function shimKind(v) {
   return "bad";
 }
 
-export const LAYER_GROUP = {
-  提示词: "prompt",
-  代码: "code",
-  工具: "tools",
-  "0.1.5 兼容": "compat",
-  "0.2.0 兼容": "dsh20",
-};
-
-export const GROUP_ORDER = ["prompt", "code", "tools", "compat", "dsh20"];
-
-export function patchRowsOf(state) {
-  if (!state || !state.ai_base) return [];
-  const fromList = Array.isArray(state.patches) ? state.patches : null;
-  const rows = fromList
-    ? fromList.map((p) => ({
-        id: Number(p.id),
-        st: p.status || "missing_file",
-        layer: p.layer || "",
-      }))
-    : Object.keys(state.patch_status || {}).map((id) => ({
-        id: Number(id),
-        st: state.patch_status[id],
-        layer: "",
-      }));
-  return rows.filter((r) => r.st && r.st !== "na" && Number.isFinite(r.id));
-}
-
-export function tallyPatches(rows) {
-  const out = { applied: 0, pending: 0, unmatched: 0, skipped: 0, total: 0 };
-  for (const row of rows || []) {
-    out.total += 1;
-    if (row.st === "applied" || row.st === "already") out.applied += 1;
-    else if (row.st === "pending") out.pending += 1;
-    else if (row.st === "unmatched") out.unmatched += 1;
-    else out.skipped += 1;
-  }
-  return out;
+/** 合并行的 id 范围：`#1–3`；单条仍是 `#17`。 */
+export function idRangeLabel(ids) {
+  const list = (ids || []).filter((n) => Number.isFinite(n));
+  if (!list.length) return "";
+  const min = Math.min(...list);
+  const max = Math.max(...list);
+  return min === max ? "#" + min : "#" + min + "–" + max;
 }
 
 export function PatchGroups({ state }) {
@@ -81,27 +61,33 @@ export function PatchGroups({ state }) {
   const [open, setOpen] = useState({});
   if (!state || !state.patch_status)
     return h("div", { className: "dshpp-skel", style: { height: 120 } });
-  const located = !!state.ai_base;
-  if (!located) return null;
-  const grouped = new Map();
+  if (!state.ai_base) return null;
+  // 表格行按升级链合并，分组计数仍按 id：两条口径不能互相污染。
+  const rowGroups = new Map();
   for (const row of patchRowsOf(state)) {
-    const key = LAYER_GROUP[row.layer] || "code";
-    if (!grouped.has(key)) grouped.set(key, []);
-    grouped.get(key).push(row);
+    const key = layerKeyOf(row.layer);
+    if (!rowGroups.has(key)) rowGroups.set(key, []);
+    rowGroups.get(key).push(row);
   }
-  return GROUP_ORDER.filter((key) => grouped.has(key)).map((key) => {
-    const rows = grouped
+  const idGroups = new Map();
+  for (const row of patchIdRowsOf(state)) {
+    const key = layerKeyOf(row.layer);
+    if (!idGroups.has(key)) idGroups.set(key, []);
+    idGroups.get(key).push(row);
+  }
+  return GROUP_ORDER.filter((key) => rowGroups.has(key)).map((key) => {
+    const rows = rowGroups
       .get(key)
       .slice()
       .sort((a, b) => a.id - b.id);
-    if (!rows.length) return null;
-    const tally = tallyPatches(rows);
+    const tally = tallyPatches(idGroups.get(key));
     const notes = [];
     if (tally.pending)
       notes.push(t("metric.pendingShort", { n: tally.pending }));
     if (tally.unmatched)
       notes.push(t("metric.unmatchedShort", { n: tally.unmatched }));
-    if (tally.skipped) notes.push(t("metric.skipShort", { n: tally.skipped }));
+    if (tally.skipped > 0 && tally.skipped !== tally.unmatched)
+      notes.push(t("metric.skipShort", { n: tally.skipped }));
     const expanded = !!open[key];
     return h(
       "div",
@@ -147,7 +133,7 @@ export function PatchGroups({ state }) {
                 h(
                   "tr",
                   { key: r.id },
-                  h("td", { className: "dshpp-id" }, "#" + r.id),
+                  h("td", { className: "dshpp-id" }, idRangeLabel(r.ids)),
                   h("td", null, t("patch." + r.id)),
                   h("td", null, h(Pill, { value: r.st })),
                 ),

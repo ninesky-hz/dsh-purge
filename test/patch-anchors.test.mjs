@@ -271,6 +271,9 @@ test("1.7.9 rc.1: #40 keeps the inject and the new tools field", () => {
   assert.equal(out.changed, true);
   assert.ok(out.text.includes("[completeSection, ...dshPurgeSections]"));
   assert.ok(out.text.includes("[dsh-purge] complete prompt keeps inject"));
+  // 写进去的标记必须同时是 markers 里的一条：否则 patchApplied() 认不出来，
+  // 明明打上了也会在面板里显示 skipped（1.7.11 在本机 rc.1 上踩到的真实故障）。
+  assert.ok(patch(40).markers.includes("complete prompt keeps inject"));
   // rc.1 的 assemble 结果多了 tools：早退与完整两条 return 都必须原样带上。
   assert.ok(out.text.includes("\t\t\ttools\n"));
   assert.ok(out.text.includes("\t\t\ttools,\n"));
@@ -458,3 +461,44 @@ test("1.7.9 rc.1: #91 still exits quietly when boot diagnostics sit in between",
   assert.equal(applyReplacementsToText(out.text, patch(91)).changed, false);
 });
 
+const RC1_OBSERVATION_INTENTS =
+  "\twriteIntent(target, actor) {\n" +
+  "\t\tconst owner = this.owner(actor);\n" +
+  "\t\tconst prior = owner ? this.get(owner, target.targetKey) : void 0;\n" +
+  "\t\treturn prior?.kind === \"present\" ? {\n" +
+  "\t\t\tkind: \"replaceIfVersion\",\n" +
+  "\t\t\tversion: prior.version\n" +
+  "\t\t} : { kind: \"createIfAbsent\" };\n" +
+  "\t}\n" +
+  "\teditIntent(target, actor) {\n" +
+  "\t\treturn this.requirePresent(target, actor, \"edit\");\n" +
+  "\t}\n" +
+  "\t/** Deletion requires the same authoritative present observation as editing. */\n" +
+  "\tdeleteIntent(target, actor) {\n" +
+  "\t\treturn this.requirePresent(target, actor, \"delete\");\n" +
+  "\t}\n";
+
+test("1.7.11 rc.1: #17 bypasses the delegated editIntent without touching deleteIntent", () => {
+  const out = applyReplacementsToText(RC1_OBSERVATION_INTENTS, patch(17));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("[dsh-purge] observation bypass: writes are unconditional"));
+  assert.ok(out.text.includes("[dsh-purge] observation bypass: edits are unconditional"));
+  // deleteIntent 与 requirePresent 仍保留读前校验
+  assert.ok(out.text.includes('return this.requirePresent(target, actor, "delete");'));
+  assert.ok(!out.text.includes('return this.requirePresent(target, actor, "edit");'));
+  assert.equal(applyReplacementsToText(out.text, patch(17)).changed, false);
+});
+
+test("1.7.11: #17 still matches the pre-rc.1 inline editIntent", () => {
+  const legacy =
+    "\teditIntent(target, actor) {\n" +
+    "\t\tconst owner = this.owner(actor);\n" +
+    "\t\tconst prior = owner ? this.get(owner, target.targetKey) : void 0;\n" +
+    "\t\tif (!owner || prior === void 0) throw new FsError(`edit requires reading \"${target.displayPath}\" first`, \"FS_NOT_OBSERVED\");\n" +
+    "\t\tif (prior.kind === \"absent\") throw new FsError(`cannot edit \"${target.displayPath}\": not found`, \"FS_NOT_FOUND\");\n" +
+    "\t\treturn { version: prior.version };\n" +
+    "\t}\n";
+  const out = applyReplacementsToText(legacy, patch(17));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("[dsh-purge] observation bypass: edits are unconditional"));
+});

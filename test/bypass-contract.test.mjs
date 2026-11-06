@@ -21,7 +21,9 @@ const GATE_FINGERPRINTS = {
   14: "144ca87f8718400b",
   15: "68bd19d2e61b65bb",
   16: "9698a6c3b4e9e7ba",
-  17: "975df12b54173ecb",
+  // 1.7.11 / 0.2.2-rc.1：宿主把 editIntent 改成一行 requirePresent 委托，旧锚点失效；
+  // #17 多一条只锚委托行的变体（write/edit 都放行，deleteIntent 仍保留读取校验）。
+  17: "a01dcfdea211bee9",
   30: "c844cddcc7933514",
   31: "f80165c28dc19a5e",
   34: "1ecd46f5b4067b0f",
