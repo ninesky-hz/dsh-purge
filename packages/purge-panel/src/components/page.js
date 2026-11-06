@@ -5,18 +5,14 @@ import { h, useState, useEffect, useCallback } from "../shared/react.js";
 import { PURGE_CSS, NATIVE_CSS, PAGE_CSS } from "../styles/index.js";
 import { useT } from "../shared/locale.js";
 import { apiJson } from "../api/client.js";
-import { Btn, HelpTip } from "./primitives.js";
+import { Btn, HelpTip, Caret } from "./primitives.js";
 import { PurgifySection } from "./settings-form.js";
 import { RulesSection } from "./rules.js";
 import { SkillsSection } from "./skills.js";
 import { CommunityMaintenance, StatusExtras } from "./maintenance.js";
 import { __dshPurgeDrill } from "../vendor/drill.js";
 import { readDrillAuth, setDock, requestDrill } from "../state/dock.js";
-import {
-  installedVersion,
-  versionBadge,
-  bundleDrift,
-} from "../shared/versions.js";
+import { installedVersion, bundleDrift } from "../shared/versions.js";
 
 const TABS = [
   ["status", "状态", "宿主兼容、补丁、破甲自检"],
@@ -48,66 +44,73 @@ function StatusStrip({ info }) {
   const compat = info?.compatibility || {};
   const level = compat.level || "";
   const ok = level === "qualified";
+  const levelText =
+    level === "qualified"
+      ? "已回归验证"
+      : level === "unverified"
+        ? "未验证版本"
+        : level === "mixed"
+          ? "组件版本不一致"
+          : level === "archive"
+            ? "归档入口 · 尚未解包"
+            : level
+              ? "未定位宿主"
+              : "检测中";
+  // 一条读数一格：标签在上，值在下。原来是一行跑马灯，读不出哪一段是哪一项。
   return h(
     "div",
     { className: "dshpp-strip" },
     h(
-      "span",
+      "div",
       { className: "dshpp-strip-item" },
-      h("i", {
-        className: "dshpp-dot " + (ok ? "is-ok" : level ? "is-warn" : ""),
-      }),
-      "DSH ",
-      h("b", null, compat.host_version || "…"),
-    ),
-    h(
-      "span",
-      { className: "dshpp-strip-item" },
-      "兼容级别 ",
+      h("span", { className: "dshpp-strip-label" }, "宿主"),
       h(
-        "b",
-        null,
-        level === "qualified"
-          ? "已回归验证"
-          : level === "unverified"
-            ? "未验证版本"
-            : level === "mixed"
-              ? "组件版本不一致"
-              : level === "archive"
-                ? "归档入口 · 尚未解包"
-                : level
-                  ? "未定位宿主"
-                  : "检测中",
-      ),
-      h(
-        HelpTip,
-        { title: "兼容级别" },
-        compat.message ||
-          "读取宿主组件版本后给出结论。qualified 表示该 DSH 版本的补丁锚点已逐条回归。",
+        "span",
+        { className: "dshpp-strip-value" },
+        h("i", { className: "dshpp-dot " + (ok ? "is-ok" : level ? "is-warn" : "") }),
+        h("b", null, compat.host_version || "…"),
       ),
     ),
     h(
-      "span",
+      "div",
       { className: "dshpp-strip-item" },
-      "补丁 ",
       h(
-        "b",
-        null,
-        `${info?.patches_applied ?? "?"}/${info?.patches_total ?? "?"} 已生效`,
-        info?.patches_na > 0 ? ` · ${info.patches_na} 条不适用` : "",
-        info?.patches_total_all > 0 ? ` · 共 ${info.patches_total_all} 条` : "",
+        "span",
+        { className: "dshpp-strip-label" },
+        "兼容",
+        h(
+          HelpTip,
+          { title: "兼容级别" },
+          compat.message ||
+            "读取宿主组件版本后给出结论。已回归验证表示该 DSH 版本的补丁锚点已逐条回归。",
+        ),
+      ),
+      h("span", { className: "dshpp-strip-value is-text" }, h("b", null, levelText)),
+    ),
+    h(
+      "div",
+      { className: "dshpp-strip-item" },
+      h(
+        "span",
+        { className: "dshpp-strip-label" },
+        "补丁",
+        h(
+          HelpTip,
+          { title: "宿主补丁" },
+          `一条补丁算一个 id，分母只算本机适用的 ${info?.patches_total ?? "?"} 条；全部 ${info?.patches_total_all ?? "?"} 条里有 ${info?.patches_na ?? 0} 条目标插件或预设没装。没对上表示宿主源码已变、锚点漂移；待应用表示锚点还在、还没写入。`,
+        ),
       ),
       h(
-        HelpTip,
-        { title: "宿主补丁" },
-        `一条补丁算一个 id，分母只算本机适用的。全部补丁 ${info?.patches_total_all ?? "?"} 条，其中 ${info?.patches_na ?? 0} 条目标插件/预设未安装；未生效表示宿主源码已变、锚点没对上，需要重新定位（见「补丁明细」）；待应用表示锚点还在、还没写入。`,
+        "span",
+        { className: "dshpp-strip-value" },
+        h("b", null, `${info?.patches_applied ?? "?"}/${info?.patches_total ?? "?"}`),
       ),
     ),
     h(
-      "span",
+      "div",
       { className: "dshpp-strip-item" },
-      "插件 ",
-      h("b", null, installedVersion(info) || "—"),
+      h("span", { className: "dshpp-strip-label" }, "插件"),
+      h("span", { className: "dshpp-strip-value" }, h("b", null, installedVersion(info) || "—")),
     ),
   );
 }
@@ -140,7 +143,13 @@ export function LayoutNotice({ info }) {
   return h(
     "details",
     { className: "dshpp-layout-details" },
-    h("summary", null, "✓ 已从解包目录启动（换包完成）"),
+    h(
+      "summary",
+      null,
+      h(Caret, { size: 11 }),
+      h("i", { className: "dshpp-dot is-ok" }),
+      "已从解包目录启动",
+    ),
     h("p", { className: "dshpp-note" }, note, diskNote, handoff),
   );
 }
@@ -223,117 +232,116 @@ export function PurgePage() {
     return () => clearInterval(timer);
   }, [info?.asar_handoff?.phase]);
   const active = TABS.find((row) => row[0] === tab) || TABS[0];
+  const ver = installedVersion(info);
   return h(
     "div",
     { className: "dshpp-page" },
     h("style", null, PURGE_CSS + NATIVE_CSS + PAGE_CSS),
     h(
-      "header",
-      { className: "dshpp-page-head" },
-      h("span", { className: "dshpp-page-glyph" }, h(PurgeGlyph, { size: 20 })),
-      h(
-        "div",
-        { className: "dshpp-page-title" },
-        h("h1", null, __COMMUNITY__ ? "Purge" : "Purge"),
-        h(
-          "p",
-          null,
-          active[2],
-          __COMMUNITY__
-            ? h("span", { className: "dshpp-page-ver" }, versionBadge(info))
-            : null,
-        ),
-      ),
-    ),
-    h(StatusStrip, { info }),
-    h(VersionNotice, { info }),
-    h(LayoutNotice, { info }),
-    h(
-      "nav",
-      { className: "dshpp-page-tabs", role: "tablist" },
-      TABS.map(([id, label]) =>
-        h(
-          "button",
-          {
-            key: id,
-            type: "button",
-            role: "tab",
-            "aria-selected": tab === id ? "true" : "false",
-            className: tab === id ? "is-on" : "",
-            onClick: () => select(id),
-          },
-          label,
-        ),
-      ),
-    ),
-    h(
       "div",
-      { className: "dshpp-page-body" },
+      { className: "dshpp-page-inner" },
       h(
-        "div",
-        { hidden: tab !== "status", className: "dshpp-sec" },
-        h(PurgifySection, { page: "status", onStatus: mergeInfo }),
-        h(StatusExtras),
-        h(CommunityMaintenance),
+        "header",
+        { className: "dshpp-page-head" },
+        h("span", { className: "dshpp-page-glyph" }, h(PurgeGlyph, { size: 17 })),
+        h(
+          "div",
+          { className: "dshpp-page-title" },
+          h("h1", null, "Purge"),
+          h("p", null, active[2]),
+          ver ? h("span", { className: "dshpp-page-ver" }, "v" + ver) : null,
+        ),
+      ),
+      h(StatusStrip, { info }),
+      h(VersionNotice, { info }),
+      h(LayoutNotice, { info }),
+      h(
+        "nav",
+        { className: "dshpp-page-tabs", role: "tablist" },
+        TABS.map(([id, label]) =>
+          h(
+            "button",
+            {
+              key: id,
+              type: "button",
+              role: "tab",
+              "aria-selected": tab === id ? "true" : "false",
+              className: tab === id ? "is-on" : "",
+              onClick: () => select(id),
+            },
+            label,
+          ),
+        ),
       ),
       h(
         "div",
-        { hidden: tab !== "prompt", className: "dshpp-sec" },
-        visited.prompt ? h(PurgifySection, { page: "prompt" }) : null,
-      ),
-      h(
-        "div",
-        { hidden: tab !== "rules", className: "dshpp-sec" },
-        visited.rules ? h(RulesSection) : null,
-      ),
-      h(
-        "div",
-        { hidden: tab !== "skills", className: "dshpp-sec" },
-        visited.skills ? h(SkillsSection) : null,
-      ),
-      h(
-        "div",
-        { hidden: tab !== "more", className: "dshpp-sec" },
-        visited.more ? h(PurgifySection, { page: "more" }) : null,
-      ),
-      tab === "drill"
-        ? h(
-            "div",
-            { className: "dshpp-sec dshpp-page-drill" },
-            __dshPurgeDrill && __dshPurgeDrill.CSS
-              ? h("style", { "data-dsh-purge-drill": "1" }, __dshPurgeDrill.CSS)
-              : null,
-            readDrillAuth()
-              ? h(__dshPurgeDrill.Panel, { embedded: true })
-              : h(
-                  "div",
-                  { className: "dshpp-card" },
-                  h(
-                    "p",
-                    { className: "dshpp-muted" },
-                    "演练台需要先完成一次授权。",
-                  ),
-                  h(
-                    Btn,
-                    {
-                      kind: "primary",
-                      onClick: () => {
-                        setDock({ tab: "drill", authOpen: true });
-                        requestDrill("auth");
+        { className: "dshpp-page-body" },
+        h(
+          "div",
+          { hidden: tab !== "status", className: "dshpp-sec" },
+          h(PurgifySection, { page: "status", onStatus: mergeInfo }),
+          h(StatusExtras),
+          h(CommunityMaintenance),
+        ),
+        h(
+          "div",
+          { hidden: tab !== "prompt", className: "dshpp-sec" },
+          visited.prompt ? h(PurgifySection, { page: "prompt" }) : null,
+        ),
+        h(
+          "div",
+          { hidden: tab !== "rules", className: "dshpp-sec" },
+          visited.rules ? h(RulesSection) : null,
+        ),
+        h(
+          "div",
+          { hidden: tab !== "skills", className: "dshpp-sec" },
+          visited.skills ? h(SkillsSection) : null,
+        ),
+        h(
+          "div",
+          { hidden: tab !== "more", className: "dshpp-sec" },
+          visited.more ? h(PurgifySection, { page: "more" }) : null,
+        ),
+        tab === "drill"
+          ? h(
+              "div",
+              { className: "dshpp-sec dshpp-page-drill" },
+              __dshPurgeDrill && __dshPurgeDrill.CSS
+                ? h("style", { "data-dsh-purge-drill": "1" }, __dshPurgeDrill.CSS)
+                : null,
+              readDrillAuth()
+                ? h(__dshPurgeDrill.Panel, { embedded: true })
+                : h(
+                    "div",
+                    { className: "dshpp-card" },
+                    h(
+                      "p",
+                      { className: "dshpp-muted" },
+                      "演练台需要先完成一次授权。",
+                    ),
+                    h(
+                      Btn,
+                      {
+                        kind: "primary",
+                        onClick: () => {
+                          setDock({ tab: "drill", authOpen: true });
+                          requestDrill("auth");
+                        },
                       },
-                    },
-                    "去授权",
+                      "去授权",
+                    ),
                   ),
-                ),
-          )
-        : null,
-    ),
-    h(
-      "footer",
-      { className: "dshpp-page-foot" },
-      __COMMUNITY__
-        ? "基于 YuJunZhiXue/dsh-purge 1.1.71 独立维护 · MIT · 保留原作者署名"
-        : "界面独立维护 · 基于 YuJunZhiXue/dsh-purge 1.1.71（MIT）",
+            )
+          : null,
+      ),
+      h(
+        "footer",
+        { className: "dshpp-page-foot" },
+        __COMMUNITY__
+          ? "基于 YuJunZhiXue/dsh-purge 1.1.71 独立维护 · MIT · 保留原作者署名"
+          : "界面独立维护 · 基于 YuJunZhiXue/dsh-purge 1.1.71（MIT）",
+      ),
     ),
   );
 }

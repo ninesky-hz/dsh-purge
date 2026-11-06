@@ -17,9 +17,9 @@ import {
   responseNeedsPrompt,
   bothInjectEmpty,
 } from "../api/client.js";
-import { shimKind, PatchGroups } from "./patch-status.js";
-import { patchCounters } from "../shared/patch-count.js";
-import { noticeNode, Btn } from "./primitives.js";
+import { shimKind, PatchGroups, statusLabel, tickKind } from "./patch-status.js";
+import { patchCounters, patchIdRowsOf } from "../shared/patch-count.js";
+import { noticeNode, Btn, HelpTip, Caret, Ticks } from "./primitives.js";
 import { HooksDenySection } from "./advanced.js";
 import { RestartAsk, restartDsh, detectHostTheme } from "./restart.js";
 import {
@@ -704,15 +704,17 @@ export function PurgifySection({ page = "status", onStatus } = {}) {
   const total = counters.total;
   const applied = counters.applied;
   const pct = located && total ? Math.round((applied / total) * 100) : 0;
-  const metricNotes = [];
-  if (counters.pending)
-    metricNotes.push(t("metric.pendingShort", { n: counters.pending }));
-  if (counters.notApplied)
-    metricNotes.push(t("metric.notAppliedShort", { n: counters.notApplied }));
-  if (counters.na)
-    metricNotes.push(t("metric.naShort", { n: counters.na }));
-  if (counters.all && counters.all !== total)
-    metricNotes.push(t("metric.allShort", { n: counters.all }));
+  // 台账刻度：一条补丁一格，na 也画（空心），否则「82 条」在界面上凑不出来。
+  const ledger = (() => {
+    const st = (s && s.patch_status) || {};
+    const rows = [];
+    for (const [raw, value] of Object.entries(st)) {
+      const id = Number(raw);
+      if (!Number.isFinite(id)) continue;
+      rows.push({ id, kind: tickKind(value), label: statusLabel(value, t) });
+    }
+    return rows.sort((a, b) => a.id - b.id);
+  })();
 
   const versions = (updateInfo && updateInfo.versions) || [];
   const channelNow = (updateInfo && updateInfo.channel) || channel || "stable";
@@ -830,42 +832,108 @@ export function PurgifySection({ page = "status", onStatus } = {}) {
         { className: "dshpp-hero" },
         h(
           "div",
-          { className: "dshpp-hero-state" },
-          h("i", {
-            className:
-              "dshpp-dot " +
-              (!located
-                ? "is-warn"
-                : patchBusy
-                  ? ""
-                  : s?.asar_still_sealed || counters.pending
+          { className: "dshpp-hero-main" },
+          h(
+            "div",
+            { className: "dshpp-hero-head" },
+            h(
+              "span",
+              { className: "dshpp-hero-state" },
+              h("i", {
+                className:
+                  "dshpp-dot " +
+                  (!located
                     ? "is-warn"
-                    : "is-ok"),
-          }),
+                    : patchBusy
+                      ? ""
+                      : s?.asar_still_sealed || counters.pending
+                        ? "is-warn"
+                        : "is-ok"),
+              }),
+              h(
+                "b",
+                null,
+                !located
+                  ? sealedReady
+                    ? "宿主还没解开 · 点「应用」"
+                    : "未定位到宿主 · 点「应用」重试"
+                  : s?.asar_still_sealed
+                    ? "已写入磁盘 · 退出重开后加载"
+                    : counters.pending
+                      ? `${counters.pending} 条待应用`
+                      : counters.notApplied
+                        ? `${counters.notApplied} 条对不上锚点`
+                        : "全部在位",
+              ),
+            ),
+            h(
+              "span",
+              { className: "dshpp-hero-surface" },
+              t("surface." + hostSurface),
+            ),
+          ),
+          // 读数：只有这里出现大字号。分母是本机适用的条数，na 在台账里是空心格。
           h(
-            "b",
-            null,
-            !located
-              ? sealedReady
-                ? "宿主还没解开：点「应用」"
-                : "未定位到宿主：点「应用」重试"
-              : s?.asar_still_sealed
-                ? `${applied}/${total} 条磁盘补丁（退出重开后加载）`
-                : counters.pending
-                  ? `还有 ${counters.pending} 条待应用`
-                  : `${applied}/${total} 条补丁已生效`,
+            "p",
+            { className: "dshpp-figure" },
+            h("span", { className: "dshpp-figure-num" }, located ? applied : "—"),
+            h("span", { className: "dshpp-figure-slash" }, "/"),
+            h("span", { className: "dshpp-figure-total" }, located ? total : "—"),
+            h("span", { className: "dshpp-figure-unit" }, "条已生效"),
+          ),
+          h(Ticks, { rows: ledger }),
+          h(
+            "ul",
+            { className: "dshpp-legend" },
+            h(
+              "li",
+              null,
+              h("i", { className: "is-ok" }),
+              "已生效",
+              h("b", null, counters.applied),
+            ),
+            counters.pending
+              ? h(
+                  "li",
+                  null,
+                  h("i", { className: "is-wait" }),
+                  "待应用",
+                  h("b", null, counters.pending),
+                )
+              : null,
+            counters.notApplied
+              ? h(
+                  "li",
+                  null,
+                  h("i", { className: "is-bad" }),
+                  "对不上",
+                  h("b", null, counters.notApplied),
+                )
+              : null,
+            counters.na
+              ? h(
+                  "li",
+                  null,
+                  h("i", { className: "is-na" }),
+                  "不适用",
+                  h("b", null, counters.na),
+                )
+              : null,
+            counters.all
+              ? h("li", null, h("i", null), "共", h("b", null, counters.all))
+              : null,
           ),
           h(
-            "span",
-            { className: "dshpp-hero-sub" },
-            [t("surface." + hostSurface), ...metricNotes]
-              .filter(Boolean)
-              .join(" · "),
+            "p",
+            { className: "dshpp-hero-hint" },
+            "改过宿主、或发现模型又开始推脱时，点「应用」把补丁写回去。补丁写盘后要完整退出并重开 DSH 才会加载。",
           ),
+          noticeNode(notice),
         ),
+        // 动作放在读数右边一列：整页只有这一个实底按钮。
         h(
           "div",
-          { className: "dshpp-hero-actions" },
+          { className: "dshpp-hero-side" },
           h(
             Btn,
             {
@@ -876,14 +944,21 @@ export function PurgifySection({ page = "status", onStatus } = {}) {
             },
             patchBusy ? t("btn.apply.busy") : t("btn.apply"),
           ),
-          // 危险操作单独成组：与「应用」之间留一道分隔，避免两个红色按钮并排抢注意力
+          h(
+            Btn,
+            {
+              disabled: patchBusy || uninstallBusy,
+              onClick: loadAll,
+            },
+            "刷新",
+          ),
           h(
             "div",
             { className: "dshpp-hero-danger" },
             h(
               Btn,
               {
-                kind: "danger",
+                quiet: true,
                 disabled: patchBusy || uninstallBusy,
                 onClick: () => doAction("revert", "action.revert"),
               },
@@ -892,80 +967,95 @@ export function PurgifySection({ page = "status", onStatus } = {}) {
             h(
               Btn,
               {
-                kind: "solid-danger",
+                quiet: true,
                 disabled: patchBusy || uninstallBusy,
                 onClick: () => setAskUninstall(true),
               },
               uninstallBusy ? t("btn.uninstall.busy") : t("btn.uninstall"),
             ),
           ),
-          h(
-            Btn,
-            {
-              tiny: true,
-              onClick: loadAll,
-              disabled: patchBusy || uninstallBusy,
-            },
-            "刷新",
-          ),
         ),
-        h(
-          "p",
-          { className: "dshpp-hero-hint" },
-          "装好插件、更新过 DSH、或发现模型又开始推脱时：点一次「应用」，然后退出并重开 DSH，就会恢复。",
-        ),
-        noticeNode(notice),
       ),
       h(
         "div",
         { className: "dshpp-rel" },
-        h(
-          "div",
-          { className: "dshpp-now" },
-          h("span", { className: "dshpp-now-label" }, t("channel.local")),
-          h(
-            "b",
-            { className: "dshpp-now-ver" },
-            localVer ? "v" + localVer : "—",
-          ),
-          h("em", { className: "dshpp-now-mark" }, t("update.current")),
-        ),
-        h(
-          "details",
-          { className: "dshpp-editions" },
-          h("summary", null, "版本管理"),
-          renderEdition("stable"),
-          renderEdition("beta"),
-        ),
         noticeNode(updateNotice),
       ),
       h(
         "details",
-        { className: "dshpp-fold" },
+        { className: "dshpp-expand" },
         h(
           "summary",
           null,
-          "补丁明细 ",
+          h(Caret),
+          "版本管理",
           h(
-            "b",
-            null,
-            s && s.ai_base
-              ? `${applied}/${total} 已应用` +
-                  (counters.notApplied
-                    ? ` · ${counters.notApplied} 未生效`
-                    : "") +
-                  (counters.na ? ` · ${counters.na} 不适用` : "") +
-                  (counters.all ? `（共 ${counters.all} 条）` : "")
-              : "未定位宿主",
+            "span",
+            { className: "dshpp-expand-meta" },
+            `${t("channel.local")} ${localVer ? "v" + localVer : "—"} · ${t(
+              "channel." + channelNow,
+            )}`,
           ),
         ),
-        h(PatchGroups, { state: s }),
+        h(
+          "div",
+          { className: "dshpp-expand-body dshpp-editions" },
+          renderEdition("stable"),
+          renderEdition("beta"),
+        ),
       ),
       h(
         "details",
-        null,
-        h("summary", null, "高级选项"),
-        h(HooksDenySection, { onSaved: loadAll }),
+        { className: "dshpp-expand" },
+        h(
+          "summary",
+          null,
+          h(Caret),
+          "补丁明细",
+          h(
+            "span",
+            { className: "dshpp-expand-meta" },
+            s && s.ai_base
+              ? counters.pending
+                ? `${counters.pending} 待应用`
+                : "全部在位"
+              : "未定位宿主",
+          ),
+        ),
+        h("div", { className: "dshpp-expand-body" }, h(PatchGroups, { state: s })),
+      ),
+      h(
+        "details",
+        { className: "dshpp-expand" },
+        h("summary", null, h(Caret), "高级选项"),
+        h(
+          "div",
+          { className: "dshpp-expand-body" },
+          // 原来这里是一段 500 字的整段说明，读不出重点；拆成三条名词解释。
+          h(
+            "dl",
+            { className: "dshpp-defs" },
+            h("dt", null, "待应用"),
+            h(
+              "dd",
+              null,
+              "锚点还在宿主源码里，只是还没写进去。点一次「应用」即可。",
+            ),
+            h("dt", null, "跳过"),
+            h(
+              "dd",
+              null,
+              "当前宿主版本不需要这一条，或它对应的插件没装。不算失败。",
+            ),
+            h("dt", null, "钩子拦截"),
+            h(
+              "dd",
+              null,
+              "关掉宿主对危险工具调用的 deny 名单，让工具真的执行。",
+            ),
+          ),
+          h(HooksDenySection, { onSaved: loadAll }),
+        ),
       ),
       askUninstall
         ? h(
@@ -1009,45 +1099,15 @@ export function PurgifySection({ page = "status", onStatus } = {}) {
             ),
           )
         : null,
-      h(
-        "p",
-        {
-          className: "dshpp-hint",
-          style: {
-            margin: "8px 0 0",
-            color: "var(--dshpp-mute)",
-            fontSize: 12,
-          },
-        },
-        t("apply.hint"),
-      ),
       s?.ok === true && !s.ai_base
         ? h(
             "p",
-            {
-              className: "dshpp-hint",
-              style: {
-                margin: "8px 0 0",
-                color: "var(--dshpp-danger, #c44)",
-                fontSize: 12,
-              },
-            },
+            { className: "dshpp-warn" },
             hostText(t, "warn.noRoot", hostSurface),
           )
         : null,
       s && s.ai_base && s.override_status === "missing"
-        ? h(
-            "p",
-            {
-              className: "dshpp-hint",
-              style: {
-                margin: "8px 0 0",
-                color: "var(--dshpp-mute)",
-                fontSize: 12,
-              },
-            },
-            t("warn.noInject"),
-          )
+        ? h("p", { className: "dshpp-hint" }, t("warn.noInject"))
         : null,
       askRestart
         ? h(RestartAsk, {
@@ -1113,14 +1173,7 @@ export function PurgifySection({ page = "status", onStatus } = {}) {
       promptBoxEmpty(override)
         ? h(
             "p",
-            {
-              className: "dshpp-hint",
-              style: {
-                margin: "8px 0 0",
-                color: "var(--dshpp-danger, #c44)",
-                fontSize: 12,
-              },
-            },
+            { className: "dshpp-hint is-bad" },
             t("need.prompt"),
           )
         : null,

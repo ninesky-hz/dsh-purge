@@ -6,9 +6,11 @@
 
 给 DeepSeek Harness 的自托管控件（俗称「破甲」插件）· 82 条宿主补丁 · 26 层状态自检 · 左侧栏整页设置
 
-[![Release](https://img.shields.io/badge/release-1.7.12-blue)](https://gitee.com/n-sky/dsh-purge/releases)
+[![Release](https://img.shields.io/badge/release-1.7.13-blue)](https://gitee.com/n-sky/dsh-purge/releases)
 
-当前版本 **1.7.12** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.13** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+
+1.7.13 把左侧栏那个整页面板重做了一遍：原来的面板是「卡片套卡片 + 一句话里塞三个按钮」，补丁数在一屏里出现三次、危险操作和主操作一样响。现在按诊断台的方向重排——页头是一条四格读数（宿主 / 兼容 / 补丁 / 插件），主区只有一个大号 `74 / 76` 配一把 82 格刻度尺（每条补丁一格，绿=在位、琥珀=待应用、空心=不适用），下面三行折叠（版本管理 / 补丁明细 / 高级选项）长一个样，`应用` 是屏上唯一的实心按钮，`还原`/`卸载` 退成灰字、悬停才变红。破甲与维护分成两节。功能与文案一字未改，只改呈现。[发行说明](docs/releases/1.7.13.md) · [1.7.12 记录](docs/releases/1.7.12.md)。
 
 1.7.12 修预设注册：宿主 0.2.2-rc.1 删掉了 `dsh-tool-subagent-control/list-agents` 这个子路径（`list_agents` 已并入 control 包自身），而 `无限制模式` 与 `红队模式` 还留着那一行 —— `disabled: false` 的死行让整份预设判 broken：红队显示「加载失败」，无限制模式直接不出现在下拉里。现在两层都修：删掉死行，并让注册器在收到 `never started` 时只剪掉那一行、其余照常注册。1.7.11 修补丁计数：同一屏以前给出两个数，hero 写「55/67 条补丁已生效」、顶部条写「磁盘写入计数 64/76」。差在分母——hero 数的是合并后的展示行（升级链把 15 个 id 压成 6 行），顶部条数的是补丁 id；那 12 条 skipped 也从来没被渲染出来。现在口径统一到 id：`64/76`，副标题补「未生效 12 · 不适用 6 · 共 82 条」。顺带修掉 #17 在 DSH 0.2.2-rc.1 上的真锚点漂移（`editIntent` 被上游改成一行 `requirePresent` 委托）。[发行说明](docs/releases/1.7.11.md) · [1.7.10 记录](docs/releases/1.7.10.md)。
 
@@ -150,7 +152,7 @@ powershell -ExecutionPolicy Bypass -File $env:TEMP\purge-install.ps1
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.12 |
+| 插件 | `dsh-purge-community` 1.7.13 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许安装，自检会标「未验证」；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |

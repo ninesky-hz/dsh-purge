@@ -6,7 +6,7 @@ import {
   useRef,
 } from "../shared/react.js";
 import { apiJson } from "../api/client.js";
-import { Btn, HelpTip } from "./primitives.js";
+import { Btn, HelpTip, Caret } from "./primitives.js";
 /**
  * 状态页顶部的两块紧凑信息：破甲自检（默认收起）+ 破甲强化段开关。
  * 单独拆出来，是为了让「应用」按钮留在页面最上面，而自检不占一屏。
@@ -66,7 +66,8 @@ export function StatusExtras() {
   const total = layers.filter((layer) => layer.applicable !== false).length;
   return h(
     "section",
-    { className: "dshpp-card", "aria-label": "破甲状态" },
+    { className: "dshpp-extras", "aria-label": "破甲状态" },
+    h("div", { className: "dshpp-section-head" }, h("h3", null, "破甲")),
     h(
       "div",
       { className: "dshpp-line" },
@@ -100,9 +101,52 @@ export function StatusExtras() {
         ),
       ),
       h(
-        "details",
-        { className: "dshpp-fold-inline" },
-        h("summary", null, "查看逐层"),
+        "span",
+        { className: "dshpp-line-ops" },
+        h(
+          Btn,
+          { quiet: true, disabled: busy, onClick: rerun },
+          busy ? "重测中…" : "重测",
+        ),
+        h(
+          Btn,
+          {
+            quiet: true,
+            title: "生成一次性探针：下一轮回复里看模型有没有原样回显该标记",
+            onClick: async () => {
+              try {
+                const r = await apiJson("/dsh-purge/probe", {
+                  method: "POST",
+                  headers: { "content-type": "application/json" },
+                  body: "{}",
+                });
+                setNotice(r.message || "");
+              } catch (e) {
+                setNotice(e.message);
+              }
+            },
+          },
+          "探针",
+        ),
+      ),
+    ),
+    h(
+      "details",
+      { className: "dshpp-expand" },
+      h(
+        "summary",
+        null,
+        h(Caret),
+        "逐层自检",
+        h(
+          "span",
+          { className: "dshpp-expand-meta" },
+          check ? `${total} 层` : "…",
+        ),
+      ),
+      h(
+        "div",
+        { className: "dshpp-expand-body" },
         h(
           "div",
           { className: "dshpp-checks" },
@@ -141,7 +185,10 @@ export function StatusExtras() {
                           ? "宿主推导"
                           : layer.state === "unknown"
                             ? "未确认"
-                            : `${layer.applied}/${layer.required ?? layer.total}`,
+                            : Number.isFinite(layer.applied) &&
+                                Number.isFinite(layer.required ?? layer.total)
+                              ? `${layer.applied}/${layer.required ?? layer.total}`
+                              : "—",
                   ),
                   layer.note
                     ? h(HelpTip, { title: layer.title }, layer.note)
@@ -150,31 +197,6 @@ export function StatusExtras() {
               )
             : h("div", { className: "dshpp-muted" }, "检测中…"),
         ),
-      ),
-      h(
-        Btn,
-        { tiny: true, disabled: busy, onClick: rerun },
-        busy ? "…" : "重测",
-      ),
-      h(
-        Btn,
-        {
-          tiny: true,
-          title: "生成一次性探针：下一轮回复里看模型有没有原样回显该标记",
-          onClick: async () => {
-            try {
-              const r = await apiJson("/dsh-purge/probe", {
-                method: "POST",
-                headers: { "content-type": "application/json" },
-                body: "{}",
-              });
-              setNotice(r.message || "");
-            } catch (e) {
-              setNotice(e.message);
-            }
-          },
-        },
-        "探针",
       ),
     ),
     h(
@@ -192,11 +214,11 @@ export function StatusExtras() {
         h("b", null, boost === null ? "…" : boost ? "已开启" : "已关闭"),
       ),
       h(
-        Btn,
-        { tiny: true, disabled: boost === null, onClick: toggle },
-        boost ? "关闭" : "开启",
+        "span",
+        { className: "dshpp-line-ops" },
+        notice ? h("span", { className: "dshpp-muted" }, notice) : null,
+        h(Btn, { quiet: true, disabled: boost === null, onClick: toggle }, boost ? "关闭" : "开启"),
       ),
-      notice ? h("span", { className: "dshpp-muted" }, notice) : null,
     ),
   );
 }
@@ -448,7 +470,7 @@ export function CommunityMaintenance() {
   return h(
     "section",
     { className: "dshpp-panel", "aria-label": "社区版维护" },
-    h("div", { className: "dshpp-section-head" }, h("h3", null, "维护：更新与本机备份")),
+    h("div", { className: "dshpp-section-head" }, h("h3", null, "维护")),
     h(UpdatePreferences, {
       value: value?.update_preferences,
       status: value?.update_status,
@@ -462,6 +484,7 @@ export function CommunityMaintenance() {
       h(
         Btn,
         {
+          quiet: true,
           disabled: busy,
           onClick: async () => {
             try {
@@ -487,6 +510,7 @@ export function CommunityMaintenance() {
       h(
         "a",
         {
+          className: "dshpp-link",
           href: "https://gitee.com/n-sky/dsh-purge/releases",
           target: "_blank",
           rel: "noreferrer",
@@ -519,34 +543,29 @@ export function CommunityMaintenance() {
       : null,
     h(
       "div",
-      { className: "dshpp-section-head" },
-      h("h3", null, "本机备份"),
+      { className: "dshpp-subhead" },
+      h("h4", null, "本机备份"),
       h(
-        "div",
+        "span",
         { className: "dshpp-section-actions" },
         h(
           Btn,
-          { tiny: true, disabled: busy || listState === "loading", onClick: load },
+          { quiet: true, disabled: busy || listState === "loading", onClick: load },
           listState === "loading" ? "读取中…" : "刷新",
         ),
       ),
     ),
     listState === "loading"
-      ? h("p", { role: "status" }, "正在读取备份…")
+      ? h("p", { className: "dshpp-muted" }, "正在读取备份…")
       : null,
     listState === "error"
-      ? h("p", { role: "alert" }, `读取备份失败：${listError}`)
+      ? h("p", { className: "dshpp-warn" }, `读取备份失败：${listError}`)
       : null,
     listState === "ready" && !value.backups.length
       ? h(
-          "div",
-          { className: "dshpp-empty", role: "status" },
-          h("b", null, "还没有本机备份"),
-          h(
-            "span",
-            null,
-            "点「立即备份」把当前插件与配置存一份快照；回滚时按快照恢复，不会覆盖提示词与规则。",
-          ),
+          "p",
+          { className: "dshpp-muted", role: "status" },
+          "还没有本机备份。点「立即备份」把当前插件与配置存一份快照；回滚时按快照恢复，不会覆盖提示词与规则。",
         )
       : null,
     h(
@@ -584,6 +603,6 @@ export function CommunityMaintenance() {
       { className: "dshpp-hint" },
       "备份只保存在本机。回滚保留当前提示词、规则和其他插件设置；安装或回滚后需要重启 DSH 进程；仅刷新浏览器不会加载新版后端。",
     ),
-    notice ? h("p", { role: "status" }, notice) : null,
+    notice ? h("p", { className: "dshpp-notice" }, notice) : null,
   );
 }

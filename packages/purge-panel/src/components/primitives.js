@@ -23,7 +23,7 @@ export function noticeNode(notice) {
 }
 
 export function Btn(props) {
-  const { kind, tiny, children, className, type, ...rest } = props;
+  const { kind, tiny, quiet, children, className, type, ...rest } = props;
   const cls = [
     "dshpp-btn",
     kind ? "dshpp-btn-" + kind : "dshpp-btn-ghost",
@@ -32,10 +32,48 @@ export function Btn(props) {
   ]
     .filter(Boolean)
     .join(" ");
+  const attrs = Object.assign({ type: type || "button", className: cls }, rest);
+  if (quiet) attrs["data-quiet"] = "1";
+  return h("button", attrs, children);
+}
+
+/** 折叠指示：全页同一种箭头，转 90° 表示展开。 */
+export function Caret({ size = 12 } = {}) {
   return h(
-    "button",
-    Object.assign({ type: type || "button", className: cls }, rest),
-    children,
+    "svg",
+    {
+      className: "dshpp-caret",
+      width: size,
+      height: size,
+      viewBox: "0 0 16 16",
+      fill: "none",
+      stroke: "currentColor",
+      strokeWidth: 1.4,
+      strokeLinecap: "round",
+      strokeLinejoin: "round",
+      "aria-hidden": true,
+    },
+    h("path", { d: "M6 3.5L10.5 8 6 12.5" }),
+  );
+}
+
+/**
+ * 台账刻度：一条补丁一格。
+ * 状态只影响颜色与高度，形状本身（等宽竖线）不变——它是这个面板的签名，
+ * 在台账里用大号，在每组明细里用小号。
+ */
+export function Ticks({ rows, className }) {
+  if (!rows || !rows.length) return null;
+  return h(
+    "div",
+    { className: (className || "dshpp-ledger"), role: "presentation" },
+    rows.map((row) =>
+      h("i", {
+        key: row.id,
+        className: "dshpp-tick is-" + row.kind,
+        title: `#${row.id} ${row.label || row.kind}`,
+      }),
+    ),
   );
 }
 
@@ -73,7 +111,20 @@ export function HelpTip({ title, children, label }) {
           setOpen((v) => !v);
         },
       },
-      "?",
+      h(
+        "svg",
+        {
+          viewBox: "0 0 16 16",
+          fill: "none",
+          stroke: "currentColor",
+          strokeWidth: 1.3,
+          strokeLinecap: "round",
+          "aria-hidden": true,
+        },
+        h("circle", { cx: 8, cy: 8, r: 6.2 }),
+        h("path", { d: "M6.4 6.2a1.7 1.7 0 113.1 1c-.4.5-1.1.8-1.1 1.6" }),
+        h("path", { d: "M8 11.4v.1" }),
+      ),
     ),
     open
       ? h(

@@ -1,760 +1,1756 @@
-/* 整页（左侧栏入口）样式：沿用 DSH 自己的字体、间距与主题变量，不引入自定义字体。 */
+/*
+ * Purge 整页面板样式。
+ *
+ * 方向：诊断台 / 补丁台账。作用是把「82 条宿主补丁到底在不在位」摊开给人看，
+ * 并给一个把补丁写回去的动作。所以：中性灰做底、细线做分隔、数字用等宽，
+ * 绿只出现在状态上（不刷在按钮上），一眼能读出「哪里缺一条」。
+ *
+ * 所有规则都挂在 .dshpp-page 下：这是 main slot 的整页，不碰右侧栏旧界面
+ * 与设置页外壳。
+ */
+
 .dshpp-page {
-  --dshpp-line: var(--dsw-alias-border-l1, rgba(127, 127, 127, 0.22));
-  --dshpp-line-strong: var(--dsw-alias-border-l2, rgba(127, 127, 127, 0.4));
-  --dshpp-fg: var(--dsw-alias-label-primary, currentColor);
-  --dshpp-mute: var(
-    --dsw-alias-label-secondary,
-    color-mix(in srgb, currentColor 62%, transparent)
-  );
-  --dshpp-bg: var(--dsw-alias-bg-layer-1, transparent);
-  --dshpp-bg-2: var(--dsw-alias-bg-layer-2, rgba(127, 127, 127, 0.06));
-  --dshpp-accent: var(--dsw-alias-brand-primary, #4d6bfe);
-  --dshpp-ok: var(--dsw-alias-state-success-primary, #1f9d55);
-  --dshpp-warn: var(--dsw-alias-state-warn-primary, #b7791f);
-  --dshpp-bad: var(--dsw-alias-state-error-primary, #d14343);
-  box-sizing: border-box;
+  /* 一盘中性灰，略偏冷绿（诊断台的金属/玻璃感），文字三档。 */
+  --dshpp-ink: var(--dsw-alias-label-primary, #171a18);
+  --dshpp-ink-2: var(--dsw-alias-label-secondary, #5c635e);
+  --dshpp-ink-3: color-mix(in srgb, var(--dshpp-ink) 46%, transparent);
+  --dshpp-rule: color-mix(in srgb, var(--dshpp-ink) 14%, transparent);
+  --dshpp-rule-soft: color-mix(in srgb, var(--dshpp-ink) 7%, transparent);
+  --dshpp-fill: color-mix(in srgb, var(--dshpp-ink) 4%, transparent);
+  --dshpp-fill-2: color-mix(in srgb, var(--dshpp-ink) 8%, transparent);
+
+  /* 状态色：绿=在位，琥珀=要你动手，红=对不上。只在圆点、刻度、文字上用。 */
+  --dshpp-gate: #2b6a4b;
+  --dshpp-wait: #9a6410;
+  --dshpp-bad: #a5382f;
+  --dshpp-danger: var(--dshpp-bad);
+  --dshpp-mute: var(--dshpp-ink-3);
+
+  /* 主按钮走墨色填充，不走品牌色填充：品牌色在深色主题是「高亮文字」，
+   * 填成底会把白字吞掉。 */
+  --dshpp-btn-ink: #1a1d1b;
+  --dshpp-btn-ink-fg: #fafbf9;
+  --dshpp-accent: var(--dsw-alias-brand-primary, #2b6a4b);
+
+  --dshpp-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas,
+    "Liberation Mono", monospace;
+  --dshpp-ease: cubic-bezier(0.2, 0, 0.1, 1);
+
   height: 100%;
-  min-height: 0;
   overflow: auto;
-  padding: 20px 24px 40px;
-  color: var(--dshpp-fg);
+  padding: 0;
+  color: var(--dshpp-ink);
   font: inherit;
-  line-height: 1.55;
+  font-size: 13px;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
+
+body[data-ds-dark-theme] .dshpp-page {
+  --dshpp-gate: #6fa887;
+  --dshpp-wait: #c2913f;
+  --dshpp-bad: #cd756b;
+  --dshpp-btn-ink: #e8ebe6;
+  --dshpp-btn-ink-fg: #14171a;
+}
+
 .dshpp-page *,
 .dshpp-page *::before,
 .dshpp-page *::after {
   box-sizing: border-box;
 }
 
-.dshpp-page-head {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-width: 0;
-}
-.dshpp-page-glyph {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 34px;
-  height: 34px;
-  border-radius: 10px;
-  border: 1px solid var(--dshpp-line);
-  background: var(--dshpp-bg-2);
-  color: var(--dshpp-accent);
-  flex: none;
-}
-.dshpp-page-title {
-  min-width: 0;
-}
-.dshpp-page-title h1 {
-  margin: 0;
-  font-size: 1.15em;
-  font-weight: 600;
-  letter-spacing: 0.01em;
-}
-.dshpp-page-title p {
-  margin: 2px 0 0;
-  font-size: 0.86em;
-  color: var(--dshpp-mute);
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
-}
-.dshpp-page-ver {
-  padding: 1px 6px;
-  border-radius: 999px;
-  border: 1px solid var(--dshpp-line);
-  font-size: 0.92em;
+.dshpp-page ::selection {
+  background: color-mix(in srgb, var(--dshpp-gate) 26%, transparent);
 }
 
-/* 顶部一行状态摘要：不用卡片，跟 DSH 的 subtitle 行一致 */
-.dshpp-strip {
+/* 版心：整页内容一条 1040 的列，左边留一条对齐线。 */
+.dshpp-page-inner {
   display: flex;
-  flex-wrap: wrap;
-  gap: 6px 18px;
-  margin: 14px 0 2px;
-  padding: 10px 0 12px;
-  border-bottom: 1px solid var(--dshpp-line);
-  font-size: 0.86em;
-  color: var(--dshpp-mute);
+  flex-direction: column;
+  max-width: 1040px;
+  min-height: 100%;
+  box-sizing: border-box;
+  margin: 0 auto;
+  padding: 28px 32px 40px;
 }
-.dshpp-strip-item {
+
+.dshpp-page-body {
+  flex: 1 0 auto;
+}
+
+/* ── 页头 ────────────────────────────────────────────────────────────── */
+
+.dshpp-page-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  min-height: 24px;
+}
+
+.dshpp-page-glyph {
+  color: var(--dshpp-ink-2);
   display: inline-flex;
+  align-self: center;
+}
+
+.dshpp-page-title {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  min-width: 0;
+  flex: 1;
+}
+
+.dshpp-page-title h1 {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+  color: var(--dshpp-ink);
+}
+
+.dshpp-page-title p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--dshpp-ink-2);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dshpp-page-ver {
+  margin-left: auto;
+  flex: none;
+  font-family: var(--dshpp-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dshpp-ink-3);
+  white-space: nowrap;
+}
+
+/* ── 台账条：宿主 / 兼容 / 补丁 / 插件，四格等宽读数 ────────────────── */
+
+.dshpp-strip {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  margin-top: 20px;
+  border-top: 1px solid var(--dshpp-rule);
+  border-bottom: 1px solid var(--dshpp-rule);
+}
+
+.dshpp-strip-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 12px 20px 12px 0;
+  min-width: 0;
+  border-left: 1px solid var(--dshpp-rule-soft);
+  padding-left: 20px;
+}
+
+.dshpp-strip-item:first-child {
+  border-left: 0;
+  padding-left: 0;
+}
+
+.dshpp-strip-label {
+  font-size: 12px;
+  color: var(--dshpp-ink-3);
+  display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 4px;
+}
+
+.dshpp-strip-value {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--dshpp-ink);
+  font-variant-numeric: tabular-nums;
   min-width: 0;
 }
-.dshpp-strip-item b {
-  color: var(--dshpp-fg);
-  font-weight: 600;
+
+.dshpp-strip-value b {
+  font-weight: 500;
+  font-family: var(--dshpp-mono);
+  font-size: 12.5px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+
+.dshpp-strip-value.is-text b {
+  font-family: inherit;
+  font-size: 13px;
+}
+
+/* ── 状态点 ──────────────────────────────────────────────────────────── */
+
 .dshpp-dot {
   width: 7px;
   height: 7px;
   border-radius: 50%;
-  background: var(--dshpp-mute);
   flex: none;
+  background: var(--dshpp-ink-3);
+  display: inline-block;
 }
+
 .dshpp-dot.is-ok {
-  background: var(--dshpp-ok);
+  background: var(--dshpp-gate);
 }
 .dshpp-dot.is-warn {
-  background: var(--dshpp-warn);
+  background: var(--dshpp-wait);
 }
 .dshpp-dot.is-bad {
   background: var(--dshpp-bad);
 }
 
-/* 页签：下划线式，跟 DSH 设置页的 tab 一致 */
-.dshpp-page-tabs {
-  display: flex;
-  gap: 2px;
-  margin: 10px 0 0;
-  border-bottom: 1px solid var(--dshpp-line);
-  overflow-x: auto;
-  scrollbar-width: none;
+/* ── 提示条 ──────────────────────────────────────────────────────────── */
+
+.dshpp-warn {
+  margin: 16px 0 0;
+  padding: 0 0 0 12px;
+  border-left: 2px solid var(--dshpp-wait);
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: var(--dshpp-ink-2);
+  max-width: 76ch;
 }
-.dshpp-page-tabs::-webkit-scrollbar {
+
+.dshpp-layout-details {
+  margin-top: 12px;
+  font-size: 12.5px;
+  color: var(--dshpp-ink-3);
+}
+
+.dshpp-layout-details > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  list-style: none;
+  color: var(--dshpp-ink-3);
+}
+
+.dshpp-layout-details > summary::-webkit-details-marker {
   display: none;
 }
+
+.dshpp-layout-details > summary:hover {
+  color: var(--dshpp-ink-2);
+}
+
+.dshpp-layout-details > summary svg {
+  opacity: 0.7;
+}
+
+details[open].dshpp-layout-details > summary svg {
+  transform: rotate(90deg);
+}
+
+.dshpp-layout-details .dshpp-note {
+  margin: 2px 0 0 16px;
+  padding: 0 0 8px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--dshpp-ink-3);
+  max-width: 76ch;
+}
+
+/* ── 页签 ────────────────────────────────────────────────────────────── */
+
+.dshpp-page-tabs {
+  display: flex;
+  gap: 24px;
+  margin-top: 8px;
+  border-bottom: 1px solid var(--dshpp-rule-soft);
+}
+
 .dshpp-page-tabs button {
   appearance: none;
   border: 0;
-  background: transparent;
-  color: var(--dshpp-mute);
+  background: none;
+  margin: 0;
+  padding: 10px 0 9px;
   font: inherit;
-  font-size: 0.92em;
-  padding: 9px 12px 10px;
-  border-bottom: 2px solid transparent;
-  margin-bottom: -1px;
+  font-size: 13px;
+  color: var(--dshpp-ink-2);
   cursor: pointer;
-  white-space: nowrap;
+  position: relative;
+  transition: color 120ms var(--dshpp-ease);
 }
+
 .dshpp-page-tabs button:hover {
-  color: var(--dshpp-fg);
+  color: var(--dshpp-ink);
 }
-.dshpp-page-tabs button[aria-selected="true"] {
-  color: var(--dshpp-fg);
-  border-bottom-color: var(--dshpp-accent);
-  font-weight: 600;
+
+.dshpp-page-tabs button.is-on {
+  color: var(--dshpp-ink);
+  font-weight: 500;
+}
+
+.dshpp-page-tabs button.is-on::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: -1px;
+  height: 1.5px;
+  background: var(--dshpp-accent);
+}
+
+.dshpp-page-tabs button:focus-visible,
+.dshpp-page button:focus-visible,
+.dshpp-page summary:focus-visible {
+  outline: 2px solid var(--dshpp-accent);
+  outline-offset: 2px;
+  border-radius: 4px;
 }
 
 .dshpp-page-body {
-  padding-top: 18px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
-  min-width: 0;
+  gap: 36px;
+  padding-top: 24px;
 }
+
 .dshpp-sec {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 8px;
   min-width: 0;
 }
+
 .dshpp-sec[hidden] {
   display: none;
 }
 
-/* 卡片：DSH 的 layer-1 面板 */
-.dshpp-page .dshpp-card,
-.dshpp-page section.dshpp-panel {
-  border: 1px solid var(--dshpp-line);
-  border-radius: 12px;
-  background: var(--dshpp-bg);
-  padding: 16px 18px;
-  margin: 0;
-  min-width: 0;
-}
-.dshpp-page .dshpp-card > h3:first-child,
-.dshpp-page section.dshpp-panel > h3:first-child {
-  margin: 0 0 12px;
-  font-size: 1em;
-  font-weight: 600;
-}
-.dshpp-page .dshpp-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+/* ── 补丁台账（状态页的主角）─────────────────────────────────────────── */
+
+.dshpp-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 188px;
+  column-gap: 40px;
+  row-gap: 0;
+  padding-bottom: 4px;
 }
 
-/* 字段行：左标题右控件；窄屏自动换行 */
-.dshpp-page .dshpp-field {
-  display: grid;
-  grid-template-columns: minmax(120px, 190px) 1fr;
-  gap: 8px 14px;
-  align-items: center;
+.dshpp-hero-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
 }
-.dshpp-page .dshpp-field > .dshpp-field-label {
+
+.dshpp-hero-head {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--dshpp-ink-3);
+}
+
+.dshpp-hero-state {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 13px;
+  color: var(--dshpp-ink);
+}
+
+.dshpp-hero-state b {
+  font-weight: 500;
+}
+
+.dshpp-hero-surface {
+  margin-left: auto;
+  font-size: 12px;
+  color: var(--dshpp-ink-3);
+}
+
+.dshpp-figure {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  margin: 10px 0 0;
+}
+
+.dshpp-figure-num {
+  font-family: var(--dshpp-mono);
+  font-size: 40px;
+  line-height: 1;
+  font-weight: 500;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--dshpp-ink);
+}
+
+.dshpp-figure-num.is-wait {
+  color: var(--dshpp-ink);
+}
+
+.dshpp-figure-slash {
+  font-family: var(--dshpp-mono);
+  font-size: 24px;
+  color: var(--dshpp-ink-3);
+  align-self: center;
+}
+
+.dshpp-figure-total {
+  font-family: var(--dshpp-mono);
+  font-size: 24px;
+  color: var(--dshpp-ink-2);
+  font-variant-numeric: tabular-nums;
+  align-self: center;
+}
+
+.dshpp-figure-unit {
+  font-size: 13px;
+  color: var(--dshpp-ink-2);
+  align-self: center;
+}
+
+/* 台账刻度：一条补丁一格。同一高度的是一把尺，只有需要动手的那几格会高出来。 */
+.dshpp-ledger {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-start;
+  gap: 6px;
+  height: 22px;
+  margin-top: 12px;
+  padding-bottom: 0;
+  border-bottom: 1px solid var(--dshpp-rule-soft);
+}
+
+.dshpp-tick {
+  flex: 0 0 3px;
+  min-width: 3px;
+  height: 13px;
+  background: var(--dshpp-gate);
+  transition: background 120ms var(--dshpp-ease);
+}
+
+.dshpp-tick.is-ok {
+  background: var(--dshpp-gate);
+}
+
+.dshpp-tick.is-wait {
+  background: var(--dshpp-wait);
+  height: 22px;
+}
+
+.dshpp-tick.is-bad {
+  background: var(--dshpp-bad);
+  height: 22px;
+}
+
+.dshpp-tick.is-na {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--dshpp-rule);
+}
+
+.dshpp-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 16px;
+  margin: 10px 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 12px;
+  color: var(--dshpp-ink-2);
+}
+
+.dshpp-legend li {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.92em;
-  color: var(--dshpp-fg);
-}
-.dshpp-page .dshpp-field > .dshpp-field-body {
-  min-width: 0;
-}
-@media (max-width: 720px) {
-  .dshpp-page .dshpp-field {
-    grid-template-columns: 1fr;
-  }
 }
 
-.dshpp-page .dshpp-muted,
-.dshpp-page .dshpp-hint {
-  color: var(--dshpp-mute) !important;
-  font-size: 0.86em !important;
+.dshpp-legend b {
+  font-family: var(--dshpp-mono);
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--dshpp-ink);
+}
+
+.dshpp-legend i {
+  width: 2px;
+  height: 11px;
+  border-radius: 1px;
+  background: var(--dshpp-rule);
+}
+
+.dshpp-legend i.is-ok {
+  background: var(--dshpp-gate);
+}
+.dshpp-legend i.is-wait {
+  background: var(--dshpp-wait);
+}
+.dshpp-legend i.is-bad {
+  background: var(--dshpp-bad);
+}
+.dshpp-legend i.is-na {
+  box-shadow: inset 0 0 0 1px var(--dshpp-rule);
+  background: transparent;
+}
+
+.dshpp-hero-hint {
+  margin: 14px 0 0;
+  font-size: 12.5px;
   line-height: 1.6;
-  margin: 0;
+  color: var(--dshpp-ink-3);
+  max-width: 62ch;
 }
 
-.dshpp-page .dshpp-row {
+.dshpp-hero-side {
   display: flex;
-  flex-wrap: wrap;
-  gap: 10px;
-  align-items: center;
-  min-width: 0;
-}
-.dshpp-page input,
-.dshpp-page select,
-.dshpp-page textarea {
-  font: inherit;
-  color: var(--dshpp-fg);
-  background: var(--dshpp-bg-2);
-  border: 1px solid var(--dshpp-line);
-  border-radius: 8px;
-  padding: 7px 10px;
-  max-width: 100%;
-}
-.dshpp-page input:focus-visible,
-.dshpp-page select:focus-visible,
-.dshpp-page textarea:focus-visible {
-  outline: 2px solid color-mix(in srgb, var(--dshpp-accent) 55%, transparent);
-  outline-offset: 1px;
-}
-.dshpp-page textarea {
-  width: 100%;
-  min-height: 320px;
-  resize: vertical;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.86em;
-  line-height: 1.6;
+  flex-direction: column;
+  gap: 8px;
+  align-items: stretch;
+  padding-top: 2px;
 }
 
-.dshpp-page .dshpp-btn {
-  font: inherit;
-  font-size: 0.9em;
-  border-radius: 8px;
-  padding: 6px 12px;
-  border: 1px solid var(--dshpp-line);
-  background: var(--dshpp-bg-2);
-  color: var(--dshpp-fg);
+.dshpp-hero-danger {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--dshpp-rule-soft);
+}
+
+.dshpp-notice {
+  font-size: 12.5px;
+  color: var(--dshpp-ink-2);
+}
+
+.dshpp-notice.is-ok {
+  color: var(--dshpp-gate);
+}
+
+.dshpp-notice.is-bad {
+  color: var(--dshpp-bad);
+}
+
+/* ── 折叠行：同一种交互只有一种长相 ──────────────────────────────────── */
+
+.dshpp-expand,
+.dshpp-fold,
+.dshpp-fold-inline,
+.dshpp-editions {
+  border-top: 1px solid var(--dshpp-rule-soft);
+}
+
+.dshpp-page > .dshpp-page-inner > .dshpp-page-body details > summary,
+.dshpp-expand > summary,
+.dshpp-fold > summary,
+.dshpp-fold-inline > summary,
+.dshpp-editions > summary {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0;
   cursor: pointer;
+  list-style: none;
+  font-size: 13px;
+  color: var(--dshpp-ink-2);
+  transition: color 120ms var(--dshpp-ease);
+}
+
+.dshpp-expand > summary::-webkit-details-marker,
+.dshpp-fold > summary::-webkit-details-marker,
+.dshpp-fold-inline > summary::-webkit-details-marker,
+.dshpp-editions > summary::-webkit-details-marker {
+  display: none;
+}
+
+.dshpp-expand > summary:hover,
+.dshpp-fold > summary:hover,
+.dshpp-fold-inline > summary:hover,
+.dshpp-editions > summary:hover {
+  color: var(--dshpp-ink);
+}
+
+details[open] > summary .dshpp-caret {
+  transform: rotate(90deg);
+}
+
+.dshpp-caret {
+  flex: none;
+  color: var(--dshpp-ink-3);
+  transition: transform 140ms var(--dshpp-ease);
+}
+
+.dshpp-expand-meta {
+  margin-left: auto;
+  font-family: var(--dshpp-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dshpp-ink-3);
   white-space: nowrap;
 }
-.dshpp-page .dshpp-btn:hover:not(:disabled) {
-  border-color: var(--dshpp-line-strong);
+
+.dshpp-expand-body {
+  padding: 2px 0 16px;
 }
+
+/* ── 行（自检、开关、维护）──────────────────────────────────────────── */
+
+.dshpp-line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  border-top: 1px solid var(--dshpp-rule-soft);
+  font-size: 13px;
+  color: var(--dshpp-ink-2);
+}
+
+.dshpp-line-main {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  color: var(--dshpp-ink-2);
+}
+
+.dshpp-line-main b {
+  font-weight: 500;
+  color: var(--dshpp-ink);
+}
+
+.dshpp-line .dshpp-line-ops {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.dshpp-checks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(248px, 1fr));
+  gap: 2px 24px;
+  padding: 4px 0 16px;
+}
+
+.dshpp-check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  font-size: 12.5px;
+  color: var(--dshpp-ink-2);
+  min-width: 0;
+}
+
+.dshpp-check-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dshpp-check-val {
+  margin-left: auto;
+  font-family: var(--dshpp-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dshpp-ink-3);
+  white-space: nowrap;
+}
+
+.dshpp-check.is-warn .dshpp-check-val {
+  color: var(--dshpp-wait);
+}
+
+.dshpp-check.is-bad .dshpp-check-val {
+  color: var(--dshpp-bad);
+}
+
+/* ── 版本管理 ────────────────────────────────────────────────────────── */
+
+.dshpp-now {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 13px;
+  color: var(--dshpp-ink-2);
+}
+
+.dshpp-now-label {
+  color: var(--dshpp-ink-3);
+  font-size: 12px;
+}
+
+.dshpp-now-ver {
+  font-family: var(--dshpp-mono);
+  font-weight: 500;
+  font-size: 12.5px;
+  color: var(--dshpp-ink);
+  font-variant-numeric: tabular-nums;
+}
+
+.dshpp-now-mark {
+  font-style: normal;
+  font-size: 11.5px;
+  color: var(--dshpp-gate);
+  border: 1px solid color-mix(in srgb, var(--dshpp-gate) 34%, transparent);
+  border-radius: 3px;
+  padding: 0 4px;
+  line-height: 1.45;
+}
+
+.dshpp-editions .dshpp-edition {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  min-height: 40px;
+  border-top: 1px solid var(--dshpp-rule-soft);
+}
+
+.dshpp-edition-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  color: var(--dshpp-ink-2);
+}
+
+.dshpp-ver {
+  width: 100%;
+}
+
+/* ── 分组（补丁明细）────────────────────────────────────────────────── */
+
+.dshpp-group {
+  border-top: 1px solid var(--dshpp-rule-soft);
+}
+
+.dshpp-group-h {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 40px;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: inherit;
+  font-size: 12.5px;
+  color: var(--dshpp-ink-2);
+  cursor: pointer;
+  text-align: left;
+}
+
+.dshpp-group-h strong {
+  font-weight: 500;
+  color: var(--dshpp-ink);
+}
+
+.dshpp-group-h:hover {
+  color: var(--dshpp-ink);
+}
+
+.dshpp-group-h .dshpp-caret {
+  order: -1;
+}
+
+.dshpp-count {
+  margin-left: auto;
+  font-family: var(--dshpp-mono);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+  color: var(--dshpp-ink-3);
+  white-space: nowrap;
+}
+
+/* 分组里的小台账：一眼看出这层缺几条 */
+.dshpp-group-ledger {
+  display: inline-flex;
+  gap: 2px;
+  align-items: flex-end;
+  height: 12px;
+  margin-left: 12px;
+}
+
+.dshpp-group-ledger i {
+  width: 3px;
+  height: 9px;
+  border-radius: 0;
+  background: var(--dshpp-gate);
+  opacity: 0.85;
+}
+
+.dshpp-group-ledger i.is-ok {
+  background: var(--dshpp-gate);
+}
+.dshpp-group-ledger i.is-wait {
+  background: var(--dshpp-wait);
+  height: 12px;
+}
+.dshpp-group-ledger i.is-bad {
+  background: var(--dshpp-bad);
+  height: 12px;
+}
+.dshpp-group-ledger i.is-na {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px var(--dshpp-rule);
+}
+
+/* ── 表格 ────────────────────────────────────────────────────────────── */
+
+.dshpp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+}
+
+.dshpp-table th {
+  text-align: left;
+  font-weight: 400;
+  font-size: 11.5px;
+  color: var(--dshpp-ink-3);
+  padding: 6px 10px 6px 0;
+  border-bottom: 1px solid var(--dshpp-rule-soft);
+}
+
+.dshpp-table td {
+  padding: 7px 10px 7px 0;
+  border-bottom: 1px solid var(--dshpp-rule-soft);
+  color: var(--dshpp-ink-2);
+  vertical-align: top;
+}
+
+.dshpp-table td:first-child {
+  color: var(--dshpp-ink);
+  font-family: var(--dshpp-mono);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.dshpp-table tr:last-child td {
+  border-bottom: 0;
+}
+
+/* ── 按钮 ────────────────────────────────────────────────────────────── */
+
+.dshpp-page .dshpp-btn {
+  appearance: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  min-height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--dshpp-rule);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--dshpp-ink);
+  font: inherit;
+  font-size: 13px;
+  cursor: pointer;
+  white-space: nowrap;
+  transition:
+    background 120ms var(--dshpp-ease),
+    border-color 120ms var(--dshpp-ease),
+    color 120ms var(--dshpp-ease);
+}
+
+.dshpp-page .dshpp-btn:hover:not(:disabled) {
+  background: var(--dshpp-fill);
+  border-color: var(--dshpp-rule);
+}
+
+.dshpp-page .dshpp-btn:active:not(:disabled) {
+  background: var(--dshpp-fill-2);
+}
+
 .dshpp-page .dshpp-btn:disabled {
   opacity: 0.45;
-  cursor: not-allowed;
+  cursor: default;
 }
-/* 主按钮：不要用 brand-primary 当底色——深色模式下它是高亮文字色，
-   直接铺成背景就成了"白底白字"的方块。这里用固定的实心绿 + 白字。 */
-.dshpp-page {
-  --dshpp-solid: #2f6b4f;
-  --dshpp-solid-hover: #3a8260;
-  --dshpp-solid-danger: #a63b3b;
-  --dshpp-solid-danger-hover: #bd4747;
-}
-.dshpp-page .dshpp-btn-primary {
-  background: var(--dshpp-solid);
-  border-color: var(--dshpp-solid);
-  color: #fff;
-  font-weight: 600;
-}
-.dshpp-page .dshpp-btn-primary:hover:not(:disabled) {
-  background: var(--dshpp-solid-hover);
-  border-color: var(--dshpp-solid-hover);
-}
-.dshpp-page .dshpp-btn-solid-danger {
-  background: var(--dshpp-solid-danger);
-  border-color: var(--dshpp-solid-danger);
-  color: #fff;
-}
-.dshpp-page .dshpp-btn-solid-danger:hover:not(:disabled) {
-  background: var(--dshpp-solid-danger-hover);
-  border-color: var(--dshpp-solid-danger-hover);
-}
-.dshpp-page .dshpp-btn-danger {
-  color: var(--dshpp-bad);
-  border-color: color-mix(in srgb, var(--dshpp-bad) 40%, transparent);
-}
+
 .dshpp-page .dshpp-btn-tiny {
-  padding: 3px 8px;
-  font-size: 0.82em;
+  min-height: 26px;
+  padding: 0 9px;
+  font-size: 12px;
+  border-radius: 6px;
 }
+
+/* 主操作：墨色实底。整页只有这一个实底按钮。 */
+.dshpp-page .dshpp-btn-primary,
+.dshpp-page .dshpp-btn-lead {
+  background: var(--dshpp-btn-ink);
+  border-color: var(--dshpp-btn-ink);
+  color: var(--dshpp-btn-ink-fg);
+  font-weight: 500;
+}
+
+.dshpp-page .dshpp-btn-primary:hover:not(:disabled),
+.dshpp-page .dshpp-btn-lead:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dshpp-btn-ink) 86%, var(--dshpp-btn-ink-fg));
+  border-color: transparent;
+}
+
+.dshpp-page .dshpp-btn-lead {
+  min-height: 36px;
+  font-size: 13.5px;
+}
+
+/* 危险操作在安静状态是文字，红只在悬停和确认框里出现。 */
+.dshpp-page .dshpp-btn-danger,
+.dshpp-page .dshpp-btn-solid-danger {
+  border-color: transparent;
+  background: transparent;
+  color: var(--dshpp-ink-3);
+  justify-content: flex-start;
+  padding: 0 8px;
+  min-height: 28px;
+  font-size: 12.5px;
+}
+
+.dshpp-page .dshpp-btn-danger:hover:not(:disabled),
+.dshpp-page .dshpp-btn-solid-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dshpp-bad) 8%, transparent);
+  border-color: transparent;
+  color: var(--dshpp-bad);
+}
+
+.dshpp-page .dshpp-btn-ghost {
+  border-color: transparent;
+  color: var(--dshpp-ink-2);
+}
+
+.dshpp-page .dshpp-btn-ghost:hover:not(:disabled) {
+  background: var(--dshpp-fill);
+  color: var(--dshpp-ink);
+}
+
+.dshpp-page .dshpp-btn[data-quiet="1"] {
+  border-color: transparent;
+  padding: 0 6px;
+  min-height: 26px;
+  font-size: 12px;
+  color: var(--dshpp-ink-3);
+}
+
+.dshpp-page .dshpp-btn[data-quiet="1"]:hover:not(:disabled) {
+  color: var(--dshpp-ink);
+  background: transparent;
+}
+
+/* ── 药丸（少用：只在真正需要一个标签时）────────────────────────────── */
 
 .dshpp-page .dshpp-pill {
   display: inline-flex;
   align-items: center;
-  padding: 1px 8px;
-  border-radius: 999px;
-  font-size: 0.8em;
-  border: 1px solid var(--dshpp-line);
-  color: var(--dshpp-mute);
+  height: 18px;
+  padding: 0 6px;
+  border-radius: 3px;
+  font-size: 11.5px;
+  font-family: var(--dshpp-mono);
+  color: var(--dshpp-ink-2);
+  background: var(--dshpp-fill);
 }
+
 .dshpp-page .dshpp-pill.is-ok {
-  color: var(--dshpp-ok);
-  border-color: color-mix(in srgb, var(--dshpp-ok) 35%, transparent);
+  color: var(--dshpp-gate);
+  background: color-mix(in srgb, var(--dshpp-gate) 10%, transparent);
 }
 .dshpp-page .dshpp-pill.is-wait {
-  color: var(--dshpp-warn);
-  border-color: color-mix(in srgb, var(--dshpp-warn) 35%, transparent);
+  color: var(--dshpp-wait);
+  background: color-mix(in srgb, var(--dshpp-wait) 10%, transparent);
 }
-.dshpp-page .dshpp-pill.is-bad {
+.dshpp-page .dshpp-pill.is-bad,
+.dshpp-page .dshpp-pill.is-miss {
   color: var(--dshpp-bad);
-  border-color: color-mix(in srgb, var(--dshpp-bad) 40%, transparent);
+  background: color-mix(in srgb, var(--dshpp-bad) 10%, transparent);
 }
 
-.dshpp-page .dshpp-table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: 0.86em;
-}
-.dshpp-page .dshpp-table th,
-.dshpp-page .dshpp-table td {
-  text-align: left;
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--dshpp-line);
-  vertical-align: top;
-  overflow-wrap: anywhere;
-}
-.dshpp-page .dshpp-table th {
-  color: var(--dshpp-mute);
-  font-weight: 500;
-  font-size: 0.95em;
-}
-.dshpp-page .dshpp-group-h {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  width: 100%;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  padding: 8px 0;
-  cursor: pointer;
-}
-.dshpp-page .dshpp-count {
-  color: var(--dshpp-mute);
-  font-size: 0.85em;
-}
+/* ── 名词解释 ────────────────────────────────────────────────────────── */
 
-/* 演练台占满剩余高度 */
-.dshpp-page-drill {
-  min-height: 60vh;
-}
-.dshpp-page-drill .rt-dock.rt-embedded {
-  width: 100%;
-  min-width: 0;
-}
-
-.dshpp-page-foot {
-  margin-top: 28px;
-  padding-top: 14px;
-  border-top: 1px solid var(--dshpp-line);
-  font-size: 0.8em;
-  color: var(--dshpp-mute);
-}
-
-/* 名词解释：标题后面的小问号 */
-.dshpp-help {
+.dshpp-page .dshpp-help {
   position: relative;
   display: inline-flex;
   align-items: center;
 }
-.dshpp-help-btn {
+
+.dshpp-page .dshpp-help-btn {
   appearance: none;
-  border: 0;
-  background: transparent;
-  color: var(--dshpp-mute);
-  font: inherit;
-  font-size: 0.85em;
-  line-height: 1;
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  border: 1px solid var(--dshpp-line);
-  cursor: help;
+  width: 15px;
+  height: 15px;
+  padding: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: none;
+  color: var(--dshpp-ink-3);
+  cursor: help;
+  transition: color 120ms var(--dshpp-ease);
 }
-.dshpp-help-btn:hover,
-.dshpp-help-btn[aria-expanded="true"] {
-  color: var(--dshpp-fg);
-  border-color: var(--dshpp-line-strong);
-  background: var(--dshpp-bg-2);
+
+.dshpp-page .dshpp-help-btn:hover,
+.dshpp-page .dshpp-help-btn[aria-expanded="true"] {
+  color: var(--dshpp-ink-2);
 }
-.dshpp-tip {
+
+.dshpp-page .dshpp-help-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
+.dshpp-page .dshpp-tip {
   position: absolute;
-  left: 0;
+  z-index: 40;
   top: calc(100% + 6px);
-  z-index: 2147483000;
+  left: 50%;
+  transform: translateX(-50%);
   width: max-content;
-  max-width: min(340px, 70vw);
-  padding: 9px 11px;
+  max-width: min(320px, 62vw);
+  padding: 10px 12px;
   border-radius: 8px;
-  border: 1px solid var(--dshpp-line);
-  background: var(--dsw-alias-bg-overlay, canvas);
-  color: var(--dshpp-fg);
-  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.18);
-  font-size: 0.82em;
+  border: 1px solid var(--dshpp-rule);
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  color: var(--dshpp-ink-2);
+  font-size: 12px;
   line-height: 1.6;
-  white-space: normal;
+  font-weight: 400;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.14);
   display: flex;
   flex-direction: column;
   gap: 4px;
 }
-.dshpp-tip b {
-  font-weight: 600;
-}
 
-.dshpp-page .dshpp-warn {
-  margin: 10px 0 0;
-  padding: 8px 12px;
-  border-radius: 8px;
-  border: 1px solid color-mix(in srgb, var(--dshpp-warn) 45%, transparent);
-  color: var(--dshpp-warn);
-  background: color-mix(in srgb, var(--dshpp-warn) 10%, transparent);
-  font-size: 0.86em;
-}
-
-/* 操作条：最常用的「应用」固定在内容区顶部 */
-.dshpp-page .dshpp-actions {
-  position: sticky;
-  top: 0;
-  z-index: 5;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  padding: 10px 0 12px;
-  margin: -4px 0 6px;
-  background: linear-gradient(
-    var(--dsw-alias-bg-base, canvas) 78%,
-    transparent
-  );
-  backdrop-filter: blur(2px);
-  border-bottom: 1px solid var(--dshpp-line);
-}
-.dshpp-page .dshpp-actions .dshpp-pill {
-  margin-left: auto;
-}
-
-/* 指标：三列紧凑 */
-.dshpp-page .dshpp-metrics {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-  gap: 10px;
-  margin: 4px 0 2px;
-}
-.dshpp-page .dshpp-metric {
-  border: 1px solid var(--dshpp-line);
-  border-radius: 10px;
-  padding: 10px 12px;
-  background: var(--dshpp-bg-2);
-  min-width: 0;
-}
-.dshpp-page .dshpp-metric b {
-  display: block;
-  font-size: 1.05em;
-  font-weight: 600;
-  margin-bottom: 2px;
-  overflow-wrap: anywhere;
-}
-.dshpp-page .dshpp-metric span {
-  color: var(--dshpp-mute);
-  font-size: 0.82em;
-}
-
-/* 折叠块：补丁明细 / 维护 / 自检 */
-.dshpp-page .dshpp-fold,
-.dshpp-page .dshpp-fold-inline {
-  border: 1px solid var(--dshpp-line);
-  border-radius: 10px;
-  background: var(--dshpp-bg);
-  padding: 0 12px;
-}
-.dshpp-page .dshpp-fold > summary,
-.dshpp-page .dshpp-fold-inline > summary {
-  cursor: pointer;
-  padding: 10px 0;
-  font-size: 0.92em;
-  color: var(--dshpp-fg);
-  list-style: none;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.dshpp-page .dshpp-fold > summary::-webkit-details-marker,
-.dshpp-page .dshpp-fold-inline > summary::-webkit-details-marker {
-  display: none;
-}
-.dshpp-page .dshpp-fold > summary::before,
-.dshpp-page .dshpp-fold-inline > summary::before {
-  content: "▸";
-  color: var(--dshpp-mute);
-  font-size: 0.9em;
-  transition: transform 0.12s ease;
-}
-.dshpp-page .dshpp-fold[open] > summary::before,
-.dshpp-page .dshpp-fold-inline[open] > summary::before {
-  transform: rotate(90deg);
-}
-.dshpp-page .dshpp-fold > summary b,
-.dshpp-page .dshpp-fold-inline > summary b {
-  color: var(--dshpp-mute);
+.dshpp-page .dshpp-tip b {
   font-weight: 500;
-  margin-left: auto;
+  color: var(--dshpp-ink);
 }
 
-/* 状态行（自检 / 强化段） */
-.dshpp-page .dshpp-line {
+body[data-ds-dark-theme] .dshpp-page .dshpp-tip {
+  background: #23262a;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.5);
+}
+
+/* ── 表单控件（提示词 / 规则 / 技能页复用）──────────────────────────── */
+
+/* 包裹层用 div，控件本身也叫 .dshpp-field（规则页的输入框），两种形态分开。 */
+.dshpp-page div.dshpp-field {
+  display: grid;
+  grid-template-columns: 168px minmax(0, 1fr);
+  gap: 16px;
+  align-items: start;
+  padding: 12px 0;
+  border-top: 1px solid var(--dshpp-rule-soft);
+  font-size: 13px;
+}
+
+.dshpp-page div.dshpp-field > label,
+.dshpp-page div.dshpp-field > .dshpp-field-label {
+  color: var(--dshpp-ink-2);
+  padding-top: 6px;
+  font-size: 12.5px;
+}
+
+.dshpp-page input.dshpp-field,
+.dshpp-page select.dshpp-field,
+.dshpp-page textarea.dshpp-field {
+  width: auto;
+  min-width: 140px;
+  font-family: inherit;
+}
+
+.dshpp-page input:not([type="checkbox"]):not([type="radio"]),
+.dshpp-page select,
+.dshpp-page textarea {
+  width: 100%;
+  min-height: 32px;
+  padding: 6px 9px;
+  border: 1px solid var(--dshpp-rule);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--dshpp-ink);
+  font: inherit;
+  font-size: 13px;
+  transition:
+    border-color 120ms var(--dshpp-ease),
+    background 120ms var(--dshpp-ease);
+}
+
+.dshpp-page textarea {
+  line-height: 1.6;
+  min-height: 120px;
+  font-family: var(--dshpp-mono);
+  font-size: 12.5px;
+}
+
+.dshpp-page input:hover,
+.dshpp-page select:hover,
+.dshpp-page textarea:hover {
+  border-color: color-mix(in srgb, var(--dshpp-ink) 24%, transparent);
+}
+
+.dshpp-page input:focus,
+.dshpp-page select:focus,
+.dshpp-page textarea:focus {
+  outline: none;
+  border-color: var(--dshpp-accent);
+  background: var(--dshpp-fill);
+}
+
+.dshpp-page .dshpp-row {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 44px;
   flex-wrap: wrap;
-  padding: 6px 0;
+  border-top: 1px solid var(--dshpp-rule-soft);
+  font-size: 13px;
+  color: var(--dshpp-ink-2);
 }
-.dshpp-page .dshpp-line + .dshpp-line {
-  border-top: 1px solid var(--dshpp-line);
-}
-.dshpp-page .dshpp-line-main {
+
+.dshpp-page .dshpp-row label {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  font-size: 0.92em;
-  min-width: 0;
-}
-.dshpp-page .dshpp-line-main b {
-  font-weight: 600;
-}
-.dshpp-page .dshpp-fold-inline {
-  border: 0;
-  padding: 0;
-  background: transparent;
-}
-.dshpp-page .dshpp-fold-inline > summary {
-  padding: 2px 0;
-  color: var(--dshpp-mute);
-  font-size: 0.86em;
-}
-.dshpp-page .dshpp-fold-inline[open] {
-  flex-basis: 100%;
+  cursor: pointer;
+  color: var(--dshpp-ink-2);
 }
 
-/* 逐层自检：两列/多列网格，不再一条一行 */
-.dshpp-page .dshpp-checks {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 2px 14px;
-  padding: 6px 0 10px;
-}
-.dshpp-page .dshpp-check {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 0.84em;
-  min-width: 0;
-  padding: 2px 0;
-}
-.dshpp-page .dshpp-check.is-bad {
-  color: var(--dshpp-bad);
-}
-.dshpp-page .dshpp-check-name {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  min-width: 0;
-}
-.dshpp-page .dshpp-check-val {
-  margin-left: auto;
-  color: var(--dshpp-mute);
-  font-variant-numeric: tabular-nums;
-}
-
-/* 状态页 hero：一眼看到"现在什么状态、下一步点哪" */
-.dshpp-page .dshpp-hero {
-  border: 1px solid var(--dshpp-line);
-  border-radius: 12px;
-  background: var(--dshpp-bg);
-  padding: 16px 18px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-.dshpp-page .dshpp-hero-state {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 1.02em;
-  min-width: 0;
-}
-.dshpp-page .dshpp-hero-state b {
-  font-weight: 600;
-}
-.dshpp-page .dshpp-hero-sub {
-  margin-left: auto;
-  color: var(--dshpp-mute);
-  font-size: 0.82em;
-}
-.dshpp-page .dshpp-hero-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-}
-.dshpp-page .dshpp-btn-lead {
-  padding: 9px 20px;
-  font-size: 0.98em;
-  font-weight: 600;
-  border-radius: 10px;
-}
-.dshpp-page .dshpp-hero-hint {
+.dshpp-page input[type="checkbox"] {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--dshpp-gate);
   margin: 0;
-  color: var(--dshpp-mute);
-  font-size: 0.84em;
-  line-height: 1.6;
-}
-.dshpp-check.is-warn {
-  color: var(--dshpp-warn);
 }
 
-.dshpp-page .dshpp-probe-msg {
-  margin: 6px 0 0;
-  padding: 8px 10px;
-  border-radius: 8px;
-  border: 1px dashed var(--dshpp-line);
-  background: var(--dshpp-bg-2);
-  font-size: 0.82em;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-
-/* ---- 状态页排版整理：提示条、分组标题、危险操作分组、空状态、页脚 ---- */
-.dshpp-page .dshpp-warn {
-  margin: 12px 0 0;
-  padding: 10px 12px 10px 14px;
-  border: 1px solid color-mix(in srgb, var(--dshpp-warn) 45%, var(--dshpp-line));
-  border-left: 3px solid var(--dshpp-warn);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--dshpp-warn) 10%, transparent);
-  color: var(--dshpp-fg);
-  font-size: 0.86em;
-  line-height: 1.6;
-  overflow-wrap: anywhere;
-}
+/* ── 区块标题 ────────────────────────────────────────────────────────── */
 
 .dshpp-page .dshpp-section-head {
   display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 26px 0 10px;
-  padding-bottom: 8px;
-  border-bottom: 1px solid var(--dshpp-line);
+  align-items: center;
+  gap: 10px;
+  margin: 28px 0 0;
+  padding: 14px 0 10px;
+  border-bottom: 1px solid var(--dshpp-rule);
 }
+
+.dshpp-page .dshpp-section-head:first-child {
+  margin-top: 0;
+}
+
+/* 标题下面已经有一条线，紧跟的那行不要再画一条。 */
+.dshpp-page .dshpp-section-head + *,
+.dshpp-page .dshpp-subhead + * {
+  border-top: 0;
+}
+
 .dshpp-page .dshpp-section-head h3 {
   margin: 0;
-  font-size: 1em;
-  font-weight: 600;
-  letter-spacing: 0.01em;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--dshpp-ink);
 }
+
 .dshpp-page .dshpp-section-actions {
+  margin-left: auto;
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  flex: none;
+  gap: 6px;
+}
+
+.dshpp-page .dshpp-subhead {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 24px 0 0;
+  padding-top: 14px;
+  border-top: 1px solid var(--dshpp-rule);
+}
+
+.dshpp-page .dshpp-subhead h4 {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--dshpp-ink-2);
+}
+
+.dshpp-page .dshpp-link {
+  color: var(--dshpp-ink-3);
+  font-size: 12.5px;
+  text-decoration: none;
+  border-bottom: 1px solid transparent;
+  transition: color 120ms var(--dshpp-ease);
+}
+
+.dshpp-page .dshpp-link:hover {
+  color: var(--dshpp-ink);
+  border-bottom-color: var(--dshpp-rule);
+}
+
+.dshpp-page .dshpp-row select {
+  width: auto;
+  min-width: 132px;
+  max-width: 320px;
+}
+
+.dshpp-page .dshpp-sub h4 {
+  margin: 0 0 8px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--dshpp-ink-2);
+}
+
+/* ── 文本工具类 ──────────────────────────────────────────────────────── */
+
+.dshpp-page .dshpp-hint.is-bad {
+  color: var(--dshpp-bad);
+}
+
+.dshpp-page .dshpp-muted,
+.dshpp-page .dshpp-hint {
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--dshpp-ink-3);
+  max-width: 76ch;
+}
+
+.dshpp-page .dshpp-hint {
+  margin: 8px 0 0;
+}
+
+.dshpp-page .dshpp-mono {
+  font-family: var(--dshpp-mono);
+  font-variant-numeric: tabular-nums;
 }
 
 .dshpp-page .dshpp-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 6px;
-  margin: 12px 0 0;
-  padding: 20px 16px;
-  border: 1px dashed var(--dshpp-line);
-  border-radius: 12px;
-  background: var(--dshpp-bg-2);
-  color: var(--dshpp-mute);
-  font-size: 0.86em;
-  line-height: 1.6;
-  text-align: center;
-}
-.dshpp-page .dshpp-empty b {
-  color: var(--dshpp-fg);
-  font-size: 1.02em;
-  font-weight: 600;
-}
-.dshpp-page .dshpp-empty span {
-  max-width: 46em;
+  text-align: left;
+  padding: 16px 0;
+  font-size: 12.5px;
+  color: var(--dshpp-ink-3);
+  border-top: 1px solid var(--dshpp-rule-soft);
 }
 
-/* hero：状态文字与「桌面端」不再抢同一行；危险操作靠右并加分隔线 */
-.dshpp-page .dshpp-hero {
+/* 卡片只在真的需要一块浮起的面时用；状态页不用。 */
+.dshpp-page .dshpp-card,
+.dshpp-page .dshpp-panel {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  background: none;
+}
+
+.dshpp-page .dshpp-card {
+  padding: 4px 0 0;
+}
+
+.dshpp-page .dshpp-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+/* ── 维护页的操作条 ──────────────────────────────────────────────────── */
+
+.dshpp-page .dshpp-actions {
+  position: static;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 0 0;
+  margin: 0;
+  background: none;
+  backdrop-filter: none;
+  border-top: 1px solid var(--dshpp-rule-soft);
+}
+
+.dshpp-page .dshpp-defs {
+  display: grid;
+  grid-template-columns: 88px minmax(0, 1fr);
+  gap: 6px 16px;
+  padding: 12px 0 16px;
+  font-size: 12.5px;
+  color: var(--dshpp-ink-3);
+  border-top: 1px solid var(--dshpp-rule-soft);
+}
+
+.dshpp-page .dshpp-defs dt {
+  font-family: var(--dshpp-mono);
+  font-size: 12px;
+  color: var(--dshpp-ink-2);
+}
+
+.dshpp-page .dshpp-defs dd {
+  margin: 0;
+  line-height: 1.65;
+}
+
+/* ── 弹窗 ────────────────────────────────────────────────────────────── */
+
+.dshpp-page .dshpp-modal-bg {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(16, 18, 17, 0.42);
+  padding: 24px;
+}
+
+.dshpp-page .dshpp-modal {
+  width: min(420px, 100%);
+  padding: 20px 24px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--dshpp-rule);
+  background: var(--dsw-alias-bg-layer-1, #fff);
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.24);
+}
+
+.dshpp-page .dshpp-modal h4 {
+  margin: 0 0 8px;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--dshpp-ink);
+}
+
+.dshpp-page .dshpp-modal p {
+  margin: 0 0 16px;
+  font-size: 12.5px;
+  line-height: 1.65;
+  color: var(--dshpp-ink-2);
+}
+
+.dshpp-page .dshpp-modal-ops {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.dshpp-page .dshpp-modal .dshpp-btn-solid-danger {
+  background: var(--dshpp-bad);
+  border-color: var(--dshpp-bad);
+  color: #fff;
+  justify-content: center;
+  padding: 0 12px;
+  min-height: 32px;
+  font-size: 13px;
+}
+
+.dshpp-page .dshpp-modal .dshpp-btn-solid-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--dshpp-bad) 86%, #000);
+  color: #fff;
+}
+
+/* ── 页脚 ────────────────────────────────────────────────────────────── */
+
+.dshpp-page-foot {
+  margin-top: 40px;
+  padding-top: 14px;
+  border-top: 1px solid var(--dshpp-rule-soft);
+  font-size: 11.5px;
+  color: var(--dshpp-ink-3);
+}
+
+/* ── 规则 / 技能 / 钩子：页面内的二级面板 ─────────────────────────────── */
+
+.dshpp-page .dshpp-head {
+  display: flex;
+  align-items: center;
   gap: 12px;
+  min-height: 40px;
+  margin: 0 0 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--dshpp-rule);
 }
-.dshpp-page .dshpp-hero-state {
-  flex-wrap: wrap;
+
+.dshpp-page .dshpp-head > h1,
+.dshpp-page .dshpp-head > h2,
+.dshpp-page .dshpp-head > h3,
+.dshpp-page .dshpp-head .dshpp-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 500;
+  letter-spacing: -0.01em;
+  color: var(--dshpp-ink);
+}
+
+.dshpp-page .dshpp-head > .dshpp-row {
+  margin-left: auto;
+  min-height: 0;
+  border-top: 0;
+  justify-content: flex-end;
+}
+
+.dshpp-page .dshpp-block {
+  margin-top: 24px;
+}
+
+.dshpp-page .dshpp-block-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--dshpp-rule-soft);
+}
+
+.dshpp-page .dshpp-block-head h4 {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--dshpp-ink);
+}
+
+.dshpp-page .dshpp-block-head .dshpp-btn {
+  margin-left: auto;
+}
+
+.dshpp-page .dshpp-block-hint {
+  margin: 10px 0 0;
+  font-size: 12px;
+  color: var(--dshpp-ink-3);
+  max-width: 76ch;
+}
+
+.dshpp-page .dshpp-policy-row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  min-height: 44px;
+}
+
+.dshpp-page .dshpp-policy-row > label {
+  font-size: 12.5px;
+  color: var(--dshpp-ink-3);
+  min-width: 64px;
+}
+
+.dshpp-page .dshpp-cwd-path {
+  margin: 6px 0 0;
+  font: 12px var(--dshpp-mono);
+  color: var(--dshpp-ink-3);
+  overflow-wrap: anywhere;
+}
+
+.dshpp-page .dshpp-cwd-list {
+  display: flex;
+  flex-direction: column;
+}
+
+.dshpp-page .dshpp-cwd-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--dshpp-rule-soft);
+  cursor: pointer;
+}
+
+.dshpp-page .dshpp-cwd-item > input {
+  margin-top: 3px;
+}
+
+.dshpp-page .dshpp-cwd-item.is-on .dshpp-cwd-name > span:first-child {
+  color: var(--dshpp-ink);
+}
+
+.dshpp-page .dshpp-cwd-main {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+
+.dshpp-page .dshpp-cwd-name {
+  display: flex;
   align-items: baseline;
-  column-gap: 10px;
-  row-gap: 4px;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--dshpp-ink-2);
 }
-.dshpp-page .dshpp-hero-state .dshpp-dot {
-  align-self: center;
+
+.dshpp-page .dshpp-cwd-badge {
+  font-size: 11px;
+  color: var(--dshpp-ink-3);
+  border: 1px solid var(--dshpp-rule);
+  border-radius: 3px;
+  padding: 0 4px;
 }
-.dshpp-page .dshpp-hero-sub {
-  margin-left: 0;
-  padding: 1px 8px;
-  border: 1px solid var(--dshpp-line);
-  border-radius: 999px;
-  background: var(--dshpp-bg-2);
-  font-size: 0.78em;
-  line-height: 1.6;
+
+.dshpp-page .dshpp-cwd-size {
+  margin-left: auto;
+  font: 11.5px var(--dshpp-mono);
+  color: var(--dshpp-ink-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.dshpp-page .dshpp-cwd-sub {
+  margin-top: 2px;
+  font: 11.5px var(--dshpp-mono);
+  color: var(--dshpp-ink-3);
+  overflow-wrap: anywhere;
+}
+
+.dshpp-page .dshpp-cwd-prev {
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--dshpp-ink-3);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* 左列规则清单 + 右列编辑器 */
+.dshpp-page .dshpp-split {
+  display: grid;
+  grid-template-columns: minmax(260px, 340px) minmax(0, 1fr);
+  gap: 40px;
+  align-items: start;
+}
+
+.dshpp-page .dshpp-rulelist {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  min-width: 0;
+}
+
+.dshpp-page .dshpp-rulebody {
+  display: flex;
+  flex-direction: column;
+}
+
+.dshpp-page .dshpp-ruleitem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 0;
+  border-top: 1px solid var(--dshpp-rule-soft);
+  cursor: pointer;
+  border-radius: 0;
+  transition: background 120ms var(--dshpp-ease);
+}
+
+.dshpp-page .dshpp-ruleitem:hover {
+  background: var(--dshpp-fill);
+}
+
+.dshpp-page .dshpp-ruleitem.is-edit {
+  background: var(--dshpp-fill-2);
+}
+
+.dshpp-page .dshpp-rule-main {
+  min-width: 0;
+  flex: 1 1 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.dshpp-page .dshpp-rule-name {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--dshpp-ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
-.dshpp-page .dshpp-hero-danger {
+
+.dshpp-page .dshpp-rule-meta {
+  font: 11.5px var(--dshpp-mono);
+  color: var(--dshpp-ink-3);
+}
+
+.dshpp-page .dshpp-rule-ops {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex: 0 0 auto;
+}
+
+.dshpp-page .dshpp-create {
+  margin-top: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--dshpp-rule-soft);
+}
+
+.dshpp-page .dshpp-create-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.dshpp-page .dshpp-create-row > .dshpp-field {
+  flex: 1 1 96px;
+  min-width: 0;
+}
+
+.dshpp-page .dshpp-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dshpp-page .dshpp-editor .dshpp-row {
+  border-top: 0;
+  min-height: 0;
+  margin: 0;
+}
+
+.dshpp-page .dshpp-editor .dshpp-area {
+  min-height: 260px;
+  resize: vertical;
+}
+
+.dshpp-page .dshpp-editor-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 240px;
+  border: 1px dashed var(--dshpp-rule);
+  border-radius: 8px;
+  font-size: 12.5px;
+  color: var(--dshpp-ink-3);
+}
+
+.dshpp-page .dshpp-area {
+  width: 100%;
+  min-height: 200px;
+  box-sizing: border-box;
+  padding: 10px;
+  border: 1px solid var(--dshpp-rule);
+  border-radius: 7px;
+  background: transparent;
+  color: var(--dshpp-ink);
+  font: 12.5px/1.6 var(--dshpp-mono);
+  transition: border-color 120ms var(--dshpp-ease);
+}
+
+.dshpp-page .dshpp-area:focus {
+  outline: none;
+  border-color: var(--dshpp-accent);
+  background: var(--dshpp-fill);
+}
+
+/* 钩子拦截开关 */
+.dshpp-page .dshpp-cr {
+  margin: 12px 0 0;
+}
+
+.dshpp-page .dshpp-cr-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 40px;
+  border-top: 1px solid var(--dshpp-rule-soft);
+  font-size: 13px;
+  color: var(--dshpp-ink-2);
+}
+
+.dshpp-page .dshpp-cr-row label {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  margin-left: auto;
-  padding-left: 12px;
-  border-left: 1px solid var(--dshpp-line);
+  cursor: pointer;
 }
 
-/* 「本机 vX 当前」徽章：允许换行，基线对齐 */
-.dshpp-page .dshpp-now {
-  flex-wrap: wrap;
-  row-gap: 4px;
+/* 补丁明细里的 id 列与骨架占位 */
+.dshpp-page .dshpp-id {
+  font: 11.5px var(--dshpp-mono);
+  color: var(--dshpp-ink-3);
+  font-variant-numeric: tabular-nums;
 }
 
-.dshpp-page .dshpp-page-foot {
-  margin-top: 28px;
-  padding-top: 12px;
-  border-top: 1px solid var(--dshpp-line);
-  color: var(--dshpp-mute);
-  font-size: 0.78em;
-  line-height: 1.6;
+.dshpp-page .dshpp-skel {
+  height: 12px;
+  border-radius: 3px;
+  background: var(--dshpp-fill-2);
+}
+
+.dshpp-page .dshpp-extras,
+.dshpp-page .dshpp-rel {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── 窄屏 ────────────────────────────────────────────────────────────── */
+
+@media (max-width: 860px) {
+  .dshpp-page-inner {
+    padding: 20px 20px 48px;
+  }
+
+  .dshpp-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .dshpp-strip-item:nth-child(3) {
+    border-left: 0;
+    padding-left: 0;
+  }
+
+  .dshpp-hero {
+    grid-template-columns: minmax(0, 1fr);
+    row-gap: 20px;
+  }
+
+  .dshpp-hero-side {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+
+  .dshpp-hero-side .dshpp-btn-lead {
+    flex: 1 1 auto;
+  }
+
+  .dshpp-hero-danger {
+    margin: 0;
+    padding: 0;
+    border: 0;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .dshpp-figure-num {
+    font-size: 34px;
+  }
+
+  .dshpp-page div.dshpp-field {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .dshpp-page div.dshpp-field > label {
+    padding-top: 0;
+  }
+}
+
+/* ── 动效：只解释状态变化，不循环 ────────────────────────────────────── */
+
+@media (prefers-reduced-motion: no-preference) {
+  .dshpp-page-body > .dshpp-sec:not([hidden]) {
+    animation: dshpp-settle 180ms var(--dshpp-ease) both;
+  }
+}
+
+@keyframes dshpp-settle {
+  from {
+    opacity: 0;
+    transform: translateY(3px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

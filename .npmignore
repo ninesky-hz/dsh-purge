@@ -1,3 +1,7 @@
 lib/default-prompt-inject.md
 default-prompt-inject.md
 频道推广手册/
+
+# 用户本地备份（preset .bak）不进发行包
+**/*.bak-*
+*.bak-*

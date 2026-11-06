@@ -39,3 +39,6 @@ market-dist/
 # dsh-main-agent 的循环记账（每轮重写，不是源码）
 .agi/loop-state*.json
 .agi/BRIEF.md
+
+# dsh-main-agent 的工作区（预览脚手架、截图、记账），不进仓库
+.agi/

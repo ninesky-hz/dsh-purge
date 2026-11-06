@@ -9,7 +9,7 @@ import {
   patchRowsOf,
   tallyPatches,
 } from "../shared/patch-count.js";
-import { Pill } from "./primitives.js";
+import { Pill, Caret } from "./primitives.js";
 
 export { GROUP_ORDER, LAYER_GROUP, patchRowsOf, tallyPatches };
 
@@ -44,6 +44,14 @@ export function shimKind(v) {
   if (v === "patched" || v === "n/a") return "ok";
   if (v === "original") return "wait";
   if (v === "missing" || !v) return "miss";
+  return "bad";
+}
+
+/** 台账刻度用的四档：在位 / 待应用 / 不适用 / 对不上。 */
+export function tickKind(st) {
+  if (st === "applied" || st === "already") return "ok";
+  if (st === "pending") return "wait";
+  if (st === "na" || st === "skipped" || st === "off") return "na";
   return "bad";
 }
 
@@ -89,6 +97,13 @@ export function PatchGroups({ state }) {
     if (tally.skipped > 0 && tally.skipped !== tally.unmatched)
       notes.push(t("metric.skipShort", { n: tally.skipped }));
     const expanded = !!open[key];
+    // 每组一条小台账：这层缺几条，不用展开就看得出来。
+    const layerIds = [];
+    for (const row of rowGroups.get(key)) for (const id of row.ids) layerIds.push(id);
+    const ticks = layerIds
+      .filter((id) => Number.isFinite(id))
+      .sort((a, b) => a - b)
+      .map((id) => ({ id, kind: tickKind(state.patch_status[id]) }));
     return h(
       "div",
       { key: key, className: "dshpp-group" },
@@ -101,7 +116,15 @@ export function PatchGroups({ state }) {
           onClick: () =>
             setOpen((prev) => Object.assign({}, prev, { [key]: !prev[key] })),
         },
+        h(Caret, { size: 11 }),
         h("strong", null, t("group." + key)),
+        h(
+          "span",
+          { className: "dshpp-group-ledger" },
+          ticks.map((tick) =>
+            h("i", { key: tick.id, className: "is-" + tick.kind }),
+          ),
+        ),
         h(
           "span",
           { className: "dshpp-count" },

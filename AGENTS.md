@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.12** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.5 同样通过）
+> 当前版本：**1.7.13** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.5 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -131,7 +131,7 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.12 |
+| 插件 | `dsh-purge-community` 1.7.13 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
@@ -467,3 +467,15 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - **升级**：改的是插件运行时代码与预设文件，要覆盖 profile 的 `node_modules/dsh-purge-community` 并完整退出重开；只看面板刷新不够。
 - **脚手架安全**：`test/desktop-presets.mjs` 的临时 profile 里有指向宿主 `@deepseek-ai` 的 junction。**Electron 的 Node 24 上 `fs.rmSync(home, { recursive: true })` 会跟着 junction 进目标目录，把真实安装的 331 个包清空**（2026-11-06 本机复现；Node 22 不跟）。回收必须走 `lib/remove-tree.js` 的 `removeTreeNoFollowSync()`。同理由：任何"临时目录里塞 junction 再整目录删"的写法都不行，先 `unlink` 链接再删父目录。`test/remove-tree.test.mjs` 已加静态断言防止回退。
 - **发行源同版本切到自家仓**：默认 `DEFAULT_REPOSITORY = "n-sky/dsh-purge"` + `DEFAULT_PROVIDER = "gitee"`（`lib/update-source.js`），`lib/update-net.js` 的 `SOURCE_REPO` 从它派生。面板报 404 时先查残留的 `PURGE_UPDATE_REPO`，再怀疑代码。面板「发行记录」/欢迎语/`package.json` 元数据/`install.sh|ps1`/`bootstrap-install.mjs` 全部指向 Gitee 仓；`market/` 索引、`.github/workflows/*`、历史 `docs/releases/*`、NOTICE/CONTRIBUTORS 保留上游，别当漏改。校验与文案细节见 `docs/releases/1.7.12.md`。**Windows 上别写 `env -u VAR cmd`**，用 `$env:VAR=$null`。
+
+## 1.7.13：面板按诊断台重做
+
+- **范围**：只是界面。`lib/core.js` 的补丁表、锚点、接口、locale key、按钮行为都没动 —— 升级后**不需要重新「应用」补丁**，也不涉及换包。
+- **样式只有一个文件**：`packages/purge-panel/src/styles/page.css`（约 1200 行，全部规则挂在 `.dshpp-page` 下）。`base.css` 仍服务右侧栏旧界面与设置页外壳，别把页面规则写回去，也别在页面里恢复卡片：`.dshpp-page .dshpp-card, .dshpp-page .dshpp-panel { border:0; padding:0; background:none }` 就是用来把这些类在页面内中和掉的。
+- **颜色规矩**：绿（`--dshpp-gate`）只做状态，不做按钮填充。主按钮是墨色实心（`--dshpp-btn-ink` / `--dshpp-btn-ink-fg`），因为 `--dsw-alias-brand-primary` 在深色主题是「高亮文字」色，填成底会把白字吞掉。危险动作默认是 `quiet` 灰字（`Btn({kind:"danger", quiet:true})`），悬停才变 `--dshpp-bad`；实心红只准出现在卸载确认弹窗。
+- **折叠只有一个长相**：`details.dshpp-expand` + `summary > <Caret/> + 文案 + span.dshpp-expand-meta`。`版本管理` / `补丁明细` / `高级选项` / `逐层自检` 都用它；新增折叠别另造第三种。
+- **刻度尺（签名件）**：`Ticks({rows})` 渲染 82 个 `i.dshpp-tick.is-<kind>`，`.dshpp-ledger` 用 `flex:0 0 3px` + `gap:6px`。**别改回 `flex:1 1 0` 或 `justify-content:space-between`** —— 82 格摊在 1000px 上会落到亚像素位置，渲染成高低不齐的条形码。组标题里的小刻度是 `patch-status.js` 的 `.dshpp-group-ledger`。
+- **`.dshpp-field` 有两种语义**：settings-form 里是「label + 控件的网格包装器」（`div.dshpp-field`），rules/skills 里是输入框自身的类（`input.dshpp-field`）。改其中一种先确认另一种没被带跑。`rules.js` 的输入框没有 `type` 属性，控件选择器必须是 `input:not([type="checkbox"]):not([type="radio"])`。
+- **两份 bundle 都要重建**：根 `npm run build:client`（写仓库根 `client.js`，头部 `// panel-version:` 取 `packages/purge-panel/package.json` 的版本），以及面板包自己的 `node packages/purge-panel/scripts/build.mjs`（写 `packages/purge-panel/client.js`）。`packages/purge-panel` 的 `npm test` 先跑 `check:build`，只重建一份会报 `client.js is stale`。
+- **预览脚手架**：`.agi/unslop/preview/`（`build.mjs` + `entry.jsx` + `index.html` + `mock-status.mjs`）把 `PurgePage` 挂到假宿主上，Chrome headless 截图即可，不需要真宿主、不需要 token。`?tab=提示词|规则|技能|演练台|更多`、`?open`（展开全部折叠）、`?dark`、窄屏用 `--window-size=720,1000`。`.agi/` 已进 `.gitignore`，不要提交。
+- **验证**：`packages/purge-panel` `npm test` 27/27、根 `npm run test:ui`、`node --test test/ui-overlay-styles.test.mjs`、`npm run check:client`、`npm run check:docs`。面板是运行时模块，改完要刷新；仍是旧界面就完整退出重开。
