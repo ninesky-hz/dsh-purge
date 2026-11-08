@@ -632,3 +632,88 @@ test('install recovery refuses to erase concurrent unrelated dependency changes'
     assert.equal(fs.readdirSync(path.join(f.manager.base,'install-recovery')).length,1);
   } finally {f.close();}
 });
+
+test('delete removes exactly one snapshot and keeps the other one rollback-able', async () => {
+  const f = setup();
+  try {
+    const a = await f.manager.backup('delete-a');
+    const b = await f.manager.backup('delete-b');
+    const before = f.manager.usage();
+    assert.equal(before.count, 2);
+    const r = await f.manager.remove(a.id);
+    assert.equal(r.ok, true);
+    assert.equal(r.removed_id, a.id);
+    assert(r.freed > 0, `freed ${r.freed}`);
+    assert.equal(r.remaining, 1);
+    assert.equal(r.usage.count, 1);
+    assert.deepEqual(f.manager.list().map((x) => x.id), [b.id]);
+    assert.equal(fs.existsSync(path.join(f.manager.backups, a.id)), false);
+    assert(f.manager.usage().count < before.count);
+    // 去重对象被 B 共享：GC 不能把还活着的备份删成空壳。
+    assert(f.manager.verify(b.id));
+  } finally { f.close(); }
+});
+
+test('delete rejects an invalid id and reports a missing snapshot as missing', async () => {
+  const f = setup();
+  try {
+    await assert.rejects(f.manager.remove('../escape'), /ID/);
+    await assert.rejects(f.manager.remove('2026-01-01T00-00-00-000Z-deadbeef'), /备份不存在/);
+  } finally { f.close(); }
+});
+
+test('delete refuses a symlinked snapshot folder and never follows it', async (t) => {
+  const f = setup();
+  const sentinel = path.join(f.home, 'sentinel');
+  let link = '';
+  try {
+    const id = '2026-01-01T00-00-00-000Z-abcdef01';
+    fs.mkdirSync(f.manager.backups, { recursive: true });
+    fs.mkdirSync(sentinel, { recursive: true });
+    fs.writeFileSync(path.join(sentinel, 'keep.txt'), 'outside bytes');
+    link = path.join(f.manager.backups, id);
+    try {
+      fs.symlinkSync(sentinel, link, process.platform === 'win32' ? 'junction' : 'dir');
+    } catch {
+      t.skip('symlink 不可用');
+      return;
+    }
+    await assert.rejects(f.manager.remove(id), /备份路径无效，未删除/);
+    assert.equal(fs.readFileSync(path.join(sentinel, 'keep.txt'), 'utf8'), 'outside bytes');
+  } finally {
+    // 先摘掉链接再递归清理临时 home，避免清理本身走进 sentinel。
+    try { if (link) fs.unlinkSync(link); } catch {}
+    f.close();
+  }
+});
+
+test('delete takes the same maintenance lock as backup and rollback', async () => {
+  const f = setup();
+  try {
+    const b = await f.manager.backup('lock-target');
+    fs.mkdirSync(f.manager.base, { recursive: true });
+    const lock = path.join(f.manager.base, 'maintenance.lock');
+    fs.writeFileSync(lock, String(process.pid));
+    await assert.rejects(f.manager.remove(b.id), /已有维护操作/);
+    assert(fs.existsSync(path.join(f.manager.backups, b.id)), '锁没抢到就不能动手');
+    fs.unlinkSync(lock);
+    const r = await f.manager.remove(b.id);
+    assert.equal(r.removed_id, b.id);
+    assert.equal(fs.existsSync(path.join(f.manager.backups, b.id)), false);
+  } finally { f.close(); }
+});
+
+test('delete cleans an unfinished snapshot that list() cannot see', async () => {
+  const f = setup();
+  try {
+    const id = '2026-01-01T00-00-00-000Z-abcdef02';
+    const folder = path.join(f.manager.backups, id);
+    fs.mkdirSync(path.join(folder, 'plugins', PACKAGE), { recursive: true });
+    fs.writeFileSync(path.join(folder, 'plugins', PACKAGE, 'leftover.js'), 'partial snapshot');
+    assert.equal(f.manager.list().length, 0, '没有 manifest 的残留不进列表');
+    const r = await f.manager.remove(id);
+    assert.equal(r.ok, true);
+    assert.equal(r.remaining, 0);
+    assert.equal(fs.existsSync(folder), false);
+  } finally { f.close(); }
+});

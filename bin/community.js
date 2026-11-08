@@ -229,6 +229,7 @@ if (LEGACY[op]) {
   else if (op === "prune") result = maintenance().prune();
   else if (op === "usage") result = maintenance().usage();
   else if (op === "rollback") result = await maintenance().rollback(argument);
+  else if (op === "delete") result = await maintenance().remove(argument);
   else if (op === "install" || op === "migrate") {
     if (!argument) throw Error("需要安装包路径");
     result = await maintenance().install(path.resolve(argument), {
@@ -237,7 +238,7 @@ if (LEGACY[op]) {
     });
   } else
     throw Error(
-      "用法：purge-community status | host-status | diagnose | selfcheck [--json] | boost on|off | rewind on|off | probe [new] | audit [--limit n] | preset [status|install] | backup [prune|usage] | rollback <备份ID> | migrate <tgz> | apply | revert | uninstall | edit",
+      "用法：purge-community status | host-status | diagnose | selfcheck [--json] | boost on|off | rewind on|off | probe [new] | audit [--limit n] | preset [status|install] | backup [prune|usage] | rollback <备份ID> | delete <备份ID> | migrate <tgz> | apply | revert | uninstall | edit",
     );
   console.log(JSON.stringify(result, null, 2));
 } catch (e) {

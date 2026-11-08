@@ -1,3 +1,20 @@
+# 1.7.14
+
+本机备份以前只有「建」和「回滚到」两个出口，想清掉一份就只能 `prune` 整片清空或去磁盘上手工 `rm -rf`。这个版本补上单份删除：四个入口（面板按钮、HTTP op、CLI 子命令、`Maintenance.remove()`）都指向同一段逻辑，删的是 `<DSH_HOME>/dsh-purge-community/backups/<id>` 这一份目录，删完顺手回收已无人引用的去重对象。
+
+- **语义**：只删本机快照，不动已安装插件、当前提示词与规则 —— 它释放的是磁盘，不是「撤销」。删除后那份快照不可回滚，其余快照照旧可用。
+- **同一把锁**：`remove()` 走 `locked()`，与 `backup()` / `rollback()` 共用 `maintenance.lock`。已有维护在进行时直接拒绝，不会两个进程同时改备份树。
+- **拒绝符号链接**：先 `lstat`（不是目录或是链接 → `备份路径无效，未删除`），再 `realpath` 与目录本身比对（不等 → `备份路径不能为符号链接`），与 `verify()` 同一口径。
+- **不跟穿 junction**：删除用 `removeTreeNoFollowSync()`，不是 `fs.rmSync(folder, {recursive:true})` —— 后者在 Windows 上会跟进 junction 把目标目录一起删掉（1.6.46 / #67 的教训）。
+- **回收去重对象**：删完调 `gcObjects()`，返回 `{freed, gc, remaining, usage}`；`freed` 是删除前统计的 `treeBytes`，面板把它格式化成 KB/MB 显示。
+- **面板**：「本机备份」标题右侧多一条占用读数（`共 N 份 · 占用 X`，加载中或失败时不显示），操作行多一个 `删除备份` 按钮（需要先选中、且列表已就绪），点击前弹确认「只删除本机这一份快照（含其去重对象），不影响已安装插件、当前提示词与规则；删除后无法再回滚到它」。完成后由既有的 `load()` 刷新列表，选中项自动清空 —— 没有另写一套刷新/清空逻辑。
+- **CLI**：`purge-community delete <备份ID>`；HTTP 侧是 `POST /dsh-purge/community` body `{"op":"delete","id":"<备份ID>"}`。ID 仍是 `validId()` 那套（`/^[0-9TZa-f-]{15,80}$/`）。
+- **残留清理**：没有 `manifest.json` 的未完成快照不进 `list()`，面板上看不到、也回滚不了；现在只要目录名能过 `validId()`，`delete <id>` 就是清掉它的唯一出路。
+- **测试**：面板 `npm test` 29/29（新增「删除要确认」「取消确认不发写请求」两条）；根 `node --test --import ./test/env-isolate.mjs test/community.test.mjs` 33 项里 26 通过、1 跳过、6 条既有失败（安装类用例的夹具仍声明旧 GitHub 仓库地址，与当前 `package.json` 的 Gitee `repository.url` 不符，`validateArchive()` 判「安装包身份与发行版本不一致」；与本次改动无关，基线同样失败）。新增五条存储层用例全部通过：单份删除、非法/未知 ID、目录被换成链接（Windows 上真建 junction 验证不跟穿）、维护锁互斥、无 manifest 的残留目录。
+- **文档与版本**：`package.json` / `packages/purge-panel/package.json` / `package-lock.json` 与两份 README、`docs/README.en.md`、`docs/MAINTENANCE.md`、`docs/INSTALLATION.md`、`AGENTS.md` 同步到 1.7.14；两份 `client.js` 已按新版本重建（`check:client` 字节一致）。
+
+[完整说明](docs/releases/1.7.14.md)
+
 # 1.7.13
 
 面板整页重做。原来一屏里补丁数出现三次、卡片套卡片、`卸载` 和 `应用` 一样响；现在按诊断台的方向重排：一个 `74 / 76` 大号数字配一把 82 格刻度尺，三行折叠长一个样，`应用` 是屏上唯一的实心按钮。

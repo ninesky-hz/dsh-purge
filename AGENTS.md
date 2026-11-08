@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.13** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.5 同样通过）
+> 当前版本：**1.7.14** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.5 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -60,6 +60,7 @@ selfcheck 全绿 = 可以开工
 | `purge-community preset [status\|install [--force]]` | `unrestricted` 预设落盘 | 0 |
 | `purge-community usage` / `prune` | 备份占用 / 清理+GC | 0 |
 | `purge-community backup` / `rollback <id>` | 快照 / 回滚插件 | 0 |
+| `purge-community delete <备份ID>` | 删除单份本机备份并回收去重对象 | 0，备份不存在/ID 无效/被锁 → 非 0 |
 | `purge-community apply` / `revert` / `uninstall` / `edit` | 原版能力（转发 `dsh-purge`） | 透传 |
 
 `selfcheck` 状态：`ok`（已确认）/ `pending`（待应用）/ `inferred`（宿主推导，黄）/ `unknown`（证据不足，黄）/ `broken`（已确认故障或权限不匹配）。
@@ -131,7 +132,7 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.13 |
+| 插件 | `dsh-purge-community` 1.7.14 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
@@ -479,3 +480,19 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - **两份 bundle 都要重建**：根 `npm run build:client`（写仓库根 `client.js`，头部 `// panel-version:` 取 `packages/purge-panel/package.json` 的版本），以及面板包自己的 `node packages/purge-panel/scripts/build.mjs`（写 `packages/purge-panel/client.js`）。`packages/purge-panel` 的 `npm test` 先跑 `check:build`，只重建一份会报 `client.js is stale`。
 - **预览脚手架**：`.agi/unslop/preview/`（`build.mjs` + `entry.jsx` + `index.html` + `mock-status.mjs`）把 `PurgePage` 挂到假宿主上，Chrome headless 截图即可，不需要真宿主、不需要 token。`?tab=提示词|规则|技能|演练台|更多`、`?open`（展开全部折叠）、`?dark`、窄屏用 `--window-size=720,1000`。`.agi/` 已进 `.gitignore`，不要提交。
 - **验证**：`packages/purge-panel` `npm test` 27/27、根 `npm run test:ui`、`node --test test/ui-overlay-styles.test.mjs`、`npm run check:client`、`npm run check:docs`。面板是运行时模块，改完要刷新；仍是旧界面就完整退出重开。
+
+## 1.7.14：本机备份可以单份删除
+
+- **入口**：存储层 `Maintenance.remove(id)`；HTTP `POST /dsh-purge/community` body `{"op":"delete","id":"<备份ID>"}`；CLI `purge-community delete <备份ID>`；面板「本机备份」操作行的 `删除备份`。四条入口到最后都是同一段方法，别在任一层另写删除逻辑。
+- **不变量（改之前先读一遍）**：
+  - 只删 `<DSH_HOME>/dsh-purge-community/backups/<id>` 这一份目录；`id` 先过 `validId()`（`/^[0-9TZa-f-]{15,80}$/`），拼路径只用 `path.join(this.backups, target)`。
+  - 走 `this.locked(...)`，与 `backup()` / `rollback()` 共用 `maintenance.lock`。已有维护在进行时拒绝，报 `已有维护操作或遗留锁…`。
+  - 先 `lstat`：不存在 → `备份不存在：<id>`；不是目录或是链接 → `备份路径无效，未删除`。再 `realpathSync(folder) !== folder` → `备份路径不能为符号链接`（与 `verify()` 同一口径）。
+  - 删除只用 `removeTreeNoFollowSync(folder)`。**不要**换成 `fs.rmSync(folder, { recursive: true })` —— Windows junction 会被跟穿（1.6.46 / #67）。
+  - 删完调 `gcObjects()`，返回 `{ok, removed_id, freed, gc, remaining, usage}`；`freed` 取删除前的 `treeBytes()`。
+  - 不动已安装插件、当前提示词、规则集与 profile 配置：删的是磁盘占用，不是「撤销」。
+- **未完成残留只能靠这条清**：没有 `manifest.json` 的快照不进 `list()`，面板看不见、`rollback` 不认、`prune()` 也数不到。只要目录名能过 `validId()`，`delete <id>` 就能清掉它 —— 所以不要给它加「必须有 manifest」的前置条件。
+- **面板**：`删除备份` 的 `disabled` 是 `busy || !selected || listState !== "ready"`；确认文案写明「不影响已安装插件、当前提示词与规则」；完成后靠既有的 `finally { load() }` 刷新列表、靠既有的 `setSelected` 清空选中，别另写一套。占用读数 `共 N 份 · 占用 X` 只在 `listState === "ready"` 且有 `backup_usage` 时显示。
+- **验证**：`node --test --import ./test/env-isolate.mjs test/community.test.mjs`（新增五条存储层用例）、`packages/purge-panel` `npm test`（新增「删除要确认」「取消确认不发写请求」）、`npm run check:client`、`npm run check:docs`。
+- **本机基线噪声**：仓库根 `package.json` 的 `repository.url` 已是 Gitee，而 `test/community.test.mjs` 的夹具仍声明旧 GitHub 地址，`validateArchive()` 因此判「安装包身份与发行版本不一致」，6 条安装类用例在**未改动本版代码时**同样失败。修法是同步夹具的 `repository.url`，但那是独立议题，本版没动。
+- 没有新增宿主补丁、没有改锚点；升级后照旧只需手动「应用」+ 完整退出重开一次（备份功能本身不依赖宿主补丁）。

@@ -20,7 +20,11 @@ const backup = (id) => ({
 });
 const reply = (body, status = 200) =>
   new Response(JSON.stringify(body), { status });
-function harness(transport, component = "CommunityMaintenance") {
+function harness(
+  transport,
+  component = "CommunityMaintenance",
+  { confirm = () => true } = {},
+) {
   const calls = [],
     context = {
       module: { exports: {} },
@@ -31,7 +35,7 @@ function harness(transport, component = "CommunityMaintenance") {
       AbortController,
       setTimeout,
       clearTimeout,
-      window: { location: { origin: "http://test" }, confirm: () => true },
+      window: { location: { origin: "http://test" }, confirm },
       fetch: async (url, init = {}) => {
         const call = {
           url: String(url),
@@ -349,6 +353,81 @@ test("cached releases and failed fallbacks are visible instead of claiming lates
     assert(!text(tree).includes("当前已是最新正式版"));
     await unmount(tree);
   }
+});
+
+test("deleting one backup asks first, posts delete, then rereads and clears the selection", async () => {
+  let rows = [backup("current")];
+  const confirms = [];
+  const h = harness(
+    (c) => {
+      if (c.method === "GET") return reply({ ok: true, backups: rows });
+      rows = [];
+      return reply({ ok: true, removed_id: "current", freed: 2048 });
+    },
+    "CommunityMaintenance",
+    {
+      confirm: (message) => {
+        confirms.push(message);
+        return true;
+      },
+    },
+  );
+  const tree = await mount(h);
+  assert(button(tree, "删除备份").props.disabled, "没选备份时不能删");
+  await act(async () => {
+    tree.root
+      .findByProps({ "aria-label": "选择回滚备份" })
+      .props.onChange({ target: { value: "current" } });
+    await flush();
+  });
+  assert(!button(tree, "删除备份").props.disabled);
+  await click(tree, "删除备份");
+  assert.equal(confirms.length, 1);
+  assert(confirms[0].includes("不影响已安装插件"));
+  const post = h.calls.filter((c) => c.method === "POST");
+  assert.equal(post.length, 1);
+  assert.equal(post[0].body.op, "delete");
+  assert.equal(post[0].body.id, "current");
+  assert.equal(
+    h.calls.filter((c) => c.method === "GET").length,
+    2,
+    "删除后必须重读列表",
+  );
+  assert(text(tree).includes("已删除备份 current"));
+  assert(text(tree).includes("释放 2.0 KB"));
+  assert.equal(
+    tree.root.findByProps({ "aria-label": "选择回滚备份" }).props.value,
+    "",
+    "列表里没有该 id 时选中项要清空",
+  );
+  await unmount(tree);
+});
+
+test("cancelled delete confirmation sends no write request and keeps the list", async () => {
+  const confirms = [];
+  const h = harness(
+    () => reply({ ok: true, backups: [backup("current")] }),
+    "CommunityMaintenance",
+    {
+      confirm: (message) => {
+        confirms.push(message);
+        return false;
+      },
+    },
+  );
+  const tree = await mount(h);
+  await act(async () => {
+    tree.root
+      .findByProps({ "aria-label": "选择回滚备份" })
+      .props.onChange({ target: { value: "current" } });
+    await flush();
+  });
+  await click(tree, "删除备份");
+  assert.equal(confirms.length, 1);
+  assert(!h.calls.some((c) => c.method === "POST"));
+  assert.equal(h.calls.filter((c) => c.method === "GET").length, 1);
+  assert(!text(tree).includes("已删除备份"));
+  await unmount(tree);
 });
 
 test("update status distinguishes loaded code, pending disk version and independent failures", async () => {

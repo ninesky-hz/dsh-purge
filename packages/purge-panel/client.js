@@ -1,6 +1,6 @@
 // Generated from src/ by npm run build. Do not edit.
 // Derived UI: YuJunZhiXue/dsh-purge (MIT), see LICENSE.
-// panel-version: 1.7.13
+// panel-version: 1.7.14
 window.__ModuleLoader__.load({id:"dsh-purge-panel",factory:(require)=>{
 var module={exports:{}};var exports=module.exports;
 var __create = Object.create;
@@ -10421,6 +10421,13 @@ function StatusExtras() {
     )
   );
 }
+function formatSize2(bytes) {
+  const n = Number(bytes);
+  if (!Number.isFinite(n) || n <= 0) return "0 B";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
 function assertMaintenanceResult(result) {
   if (!result || typeof result !== "object")
     throw new Error("\u7EF4\u62A4\u63A5\u53E3\u8FD4\u56DE\u4E86\u65E0\u6548\u7ED3\u679C");
@@ -10438,6 +10445,10 @@ function maintenanceNotice(op, result) {
   }
   if (op === "rollback")
     return (result.note || "\u63D2\u4EF6\u56DE\u6EDA\u5DF2\u5B8C\u6210") + "\u3002\u8BF7\u91CD\u542F DSH \u8FDB\u7A0B\uFF1B\u4EC5\u5237\u65B0\u6D4F\u89C8\u5668\u4E0D\u4F1A\u52A0\u8F7D\u65B0\u7248\u540E\u7AEF\u3002";
+  if (op === "delete") {
+    const freed = Number(result.freed) > 0 ? `\uFF0C\u91CA\u653E ${formatSize2(result.freed)}` : "";
+    return `\u5DF2\u5220\u9664\u5907\u4EFD ${result.removed_id || ""}${freed}`;
+  }
   if (op === "update") {
     if (result.applied === false || result.skipped)
       return result.note || "\u672A\u5B89\u88C5\u65B0\u7248\u672C\uFF0C\u5F53\u524D\u5B89\u88C5\u672A\u66F4\u65B0\u3002";
@@ -10578,6 +10589,10 @@ function CommunityMaintenance() {
       "\u53EA\u56DE\u6EDA Purge \u63D2\u4EF6\u53CA\u5176\u5165\u53E3\uFF0C\u4FDD\u7559\u5F53\u524D\u63D0\u793A\u8BCD\u548C\u8BBE\u7F6E\uFF1B\u5B8C\u6210\u540E\u9700\u91CD\u542F DSH \u8FDB\u7A0B\uFF1B\u4EC5\u5237\u65B0\u6D4F\u89C8\u5668\u4E0D\u4F1A\u52A0\u8F7D\u65B0\u7248\u540E\u7AEF\u3002\u7EE7\u7EED\uFF1F"
     ))
       return;
+    if (op === "delete" && !window.confirm(
+      "\u53EA\u5220\u9664\u672C\u673A\u8FD9\u4E00\u4EFD\u5FEB\u7167\uFF08\u542B\u5176\u53BB\u91CD\u5BF9\u8C61\uFF09\uFF0C\u4E0D\u5F71\u54CD\u5DF2\u5B89\u88C5\u63D2\u4EF6\u3001\u5F53\u524D\u63D0\u793A\u8BCD\u4E0E\u89C4\u5219\uFF1B\u5220\u9664\u540E\u65E0\u6CD5\u518D\u56DE\u6EDA\u5230\u5B83\u3002\u7EE7\u7EED\uFF1F"
+    ))
+      return;
     if (op === "update" && !window.confirm(
       "\u5C06\u5148\u5907\u4EFD\uFF0C\u518D\u5B89\u88C5\u6240\u9009\u793E\u533A\u6B63\u5F0F\u7248\uFF1B\u4E0D\u4F1A\u91CD\u65B0\u5E94\u7528\u5BBF\u4E3B\u8865\u4E01\u3002\u5B89\u88C5\u540E\u8BF7\u91CD\u542F DSH \u8FDB\u7A0B\uFF1B\u4EC5\u5237\u65B0\u6D4F\u89C8\u5668\u4E0D\u4F1A\u52A0\u8F7D\u65B0\u7248\u540E\u7AEF\u3002\u7EE7\u7EED\uFF1F"
     ))
@@ -10688,6 +10703,11 @@ function CommunityMaintenance() {
       "div",
       { className: "dshpp-subhead" },
       h("h4", null, "\u672C\u673A\u5907\u4EFD"),
+      listState === "ready" && value?.backup_usage ? h(
+        "span",
+        { className: "dshpp-muted" },
+        `\u5171 ${value.backup_usage.count} \u4EFD${value.backup_usage.count ? ` \xB7 \u5360\u7528 ${formatSize2(value.backup_usage.bytes)}` : ""}`
+      ) : null,
       h(
         "span",
         { className: "dshpp-section-actions" },
@@ -10733,12 +10753,20 @@ function CommunityMaintenance() {
           onClick: () => run("rollback")
         },
         "\u56DE\u6EDA\u63D2\u4EF6"
+      ),
+      h(
+        Btn,
+        {
+          disabled: busy || !selected || listState !== "ready",
+          onClick: () => run("delete")
+        },
+        "\u5220\u9664\u5907\u4EFD"
       )
     ),
     h(
       "p",
       { className: "dshpp-hint" },
-      "\u5907\u4EFD\u53EA\u4FDD\u5B58\u5728\u672C\u673A\u3002\u56DE\u6EDA\u4FDD\u7559\u5F53\u524D\u63D0\u793A\u8BCD\u3001\u89C4\u5219\u548C\u5176\u4ED6\u63D2\u4EF6\u8BBE\u7F6E\uFF1B\u5B89\u88C5\u6216\u56DE\u6EDA\u540E\u9700\u8981\u91CD\u542F DSH \u8FDB\u7A0B\uFF1B\u4EC5\u5237\u65B0\u6D4F\u89C8\u5668\u4E0D\u4F1A\u52A0\u8F7D\u65B0\u7248\u540E\u7AEF\u3002"
+      "\u5907\u4EFD\u53EA\u4FDD\u5B58\u5728\u672C\u673A\u3002\u56DE\u6EDA\u4FDD\u7559\u5F53\u524D\u63D0\u793A\u8BCD\u3001\u89C4\u5219\u548C\u5176\u4ED6\u63D2\u4EF6\u8BBE\u7F6E\uFF1B\u5B89\u88C5\u6216\u56DE\u6EDA\u540E\u9700\u8981\u91CD\u542F DSH \u8FDB\u7A0B\uFF1B\u4EC5\u5237\u65B0\u6D4F\u89C8\u5668\u4E0D\u4F1A\u52A0\u8F7D\u65B0\u7248\u540E\u7AEF\u3002\u5220\u9664\u53EA\u5F71\u54CD\u672C\u673A\u5FEB\u7167\uFF0C\u4E0D\u52A8\u5DF2\u5B89\u88C5\u63D2\u4EF6\u4E0E\u8BBE\u7F6E\u3002"
     ),
     notice ? h("p", { className: "dshpp-notice" }, notice) : null
   );

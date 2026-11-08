@@ -223,6 +223,14 @@ export function StatusExtras() {
   );
 }
 
+/** 备份占用读数用的人话体积：只到 KB/MB，保留一位小数。 */
+export function formatSize(bytes) {
+  const n = Number(bytes);
+  if (!Number.isFinite(n) || n <= 0) return "0 B";
+  if (n < 1024) return `${n} B`;
+  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KB`;
+  return `${(n / 1024 / 1024).toFixed(1)} MB`;
+}
 export function assertMaintenanceResult(result) {
   if (!result || typeof result !== "object")
     throw new Error("维护接口返回了无效结果");
@@ -247,6 +255,10 @@ export function maintenanceNotice(op, result) {
       (result.note || "插件回滚已完成") +
       "。请重启 DSH 进程；仅刷新浏览器不会加载新版后端。"
     );
+  if (op === "delete") {
+    const freed = Number(result.freed) > 0 ? `，释放 ${formatSize(result.freed)}` : "";
+    return `已删除备份 ${result.removed_id || ""}${freed}`;
+  }
   if (op === "update") {
     if (result.applied === false || result.skipped)
       return result.note || "未安装新版本，当前安装未更新。";
@@ -419,6 +431,13 @@ export function CommunityMaintenance() {
     )
       return;
     if (
+      op === "delete" &&
+      !window.confirm(
+        "只删除本机这一份快照（含其去重对象），不影响已安装插件、当前提示词与规则；删除后无法再回滚到它。继续？",
+      )
+    )
+      return;
+    if (
       op === "update" &&
       !window.confirm(
         "将先备份，再安装所选社区正式版；不会重新应用宿主补丁。安装后请重启 DSH 进程；仅刷新浏览器不会加载新版后端。继续？",
@@ -545,6 +564,17 @@ export function CommunityMaintenance() {
       "div",
       { className: "dshpp-subhead" },
       h("h4", null, "本机备份"),
+      listState === "ready" && value?.backup_usage
+        ? h(
+            "span",
+            { className: "dshpp-muted" },
+            `共 ${value.backup_usage.count} 份${
+              value.backup_usage.count
+                ? ` · 占用 ${formatSize(value.backup_usage.bytes)}`
+                : ""
+            }`,
+          )
+        : null,
       h(
         "span",
         { className: "dshpp-section-actions" },
@@ -597,11 +627,19 @@ export function CommunityMaintenance() {
         },
         "回滚插件",
       ),
+      h(
+        Btn,
+        {
+          disabled: busy || !selected || listState !== "ready",
+          onClick: () => run("delete"),
+        },
+        "删除备份",
+      ),
     ),
     h(
       "p",
       { className: "dshpp-hint" },
-      "备份只保存在本机。回滚保留当前提示词、规则和其他插件设置；安装或回滚后需要重启 DSH 进程；仅刷新浏览器不会加载新版后端。",
+      "备份只保存在本机。回滚保留当前提示词、规则和其他插件设置；安装或回滚后需要重启 DSH 进程；仅刷新浏览器不会加载新版后端。删除只影响本机快照，不动已安装插件与设置。",
     ),
     notice ? h("p", { className: "dshpp-notice" }, notice) : null,
   );

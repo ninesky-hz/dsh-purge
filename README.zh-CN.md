@@ -6,9 +6,11 @@
 
 给 DeepSeek Harness 的自托管控件（俗称「破甲」插件）· 82 条宿主补丁 · 26 层状态自检 · 左侧栏整页设置
 
-[![Release](https://img.shields.io/badge/release-1.7.13-blue)](https://gitee.com/n-sky/dsh-purge/releases)
+[![Release](https://img.shields.io/badge/release-1.7.14-blue)](https://gitee.com/n-sky/dsh-purge/releases)
 
-当前版本 **1.7.13** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.14** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+
+1.7.14 让「本机备份」可以单份删除：以前只有 `prune` 一把全清，想腾出某一份快照的空间、或者清掉一次失败安装留下的半截目录（没有 `manifest.json`，面板根本看不见、`rollback` 也不认）都没有出口。现在存储层 `remove(id)`、HTTP `{op:"delete"}`、CLI `purge-community delete <备份ID>`、面板「删除备份」四条入口通向同一段代码：走同一把 `maintenance.lock`，`id` 先过白名单正则，`lstat` 不是真目录就拒、`realpath` 与实际路径不一致就拒（和 `verify()` 同一口径），删除只走 `removeTreeNoFollowSync`——Windows 上 `fs.rmSync(recursive)` 会顺着 junction 删到目标目录外面去。删完顺手 `gcObjects()` 回收去重对象，返回 `freed` 与剩余份数；面板按钮带确认，写明不动已安装插件、当前提示词与规则。本机基线另有 6 条安装类用例因测试夹具的 `repository.url` 仍写旧 GitHub 地址而失败（仓库本体已迁 Gitee），与本版无关。[发行说明](docs/releases/1.7.14.md) · [1.7.13 记录](docs/releases/1.7.13.md)。
 
 1.7.13 把左侧栏那个整页面板重做了一遍：原来的面板是「卡片套卡片 + 一句话里塞三个按钮」，补丁数在一屏里出现三次、危险操作和主操作一样响。现在按诊断台的方向重排——页头是一条四格读数（宿主 / 兼容 / 补丁 / 插件），主区只有一个大号 `74 / 76` 配一把 82 格刻度尺（每条补丁一格，绿=在位、琥珀=待应用、空心=不适用），下面三行折叠（版本管理 / 补丁明细 / 高级选项）长一个样，`应用` 是屏上唯一的实心按钮，`还原`/`卸载` 退成灰字、悬停才变红。破甲与维护分成两节。功能与文案一字未改，只改呈现。[发行说明](docs/releases/1.7.13.md) · [1.7.12 记录](docs/releases/1.7.12.md)。
 
@@ -152,7 +154,7 @@ powershell -ExecutionPolicy Bypass -File $env:TEMP\purge-install.ps1
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.13 |
+| 插件 | `dsh-purge-community` 1.7.14 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许安装，自检会标「未验证」；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
