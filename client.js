@@ -1,6 +1,6 @@
 // Generated from src/ by npm run build. Do not edit.
 // Derived UI: YuJunZhiXue/dsh-purge (MIT), see LICENSE.
-// panel-version: 1.7.15
+// panel-version: 1.7.16
 window.__ModuleLoader__.load({id:"dsh-purge-community",factory:(require)=>{
 var module={exports:{}};var exports=module.exports;
 var __create = Object.create;

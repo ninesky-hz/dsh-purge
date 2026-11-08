@@ -1,3 +1,16 @@
+# 1.7.16
+
+Gitee 把 release 附件重定向到 `foruda.gitee.com`，而安装链路上的三处域名白名单还停在 `gitee.com` / `file.gitee.com`，于是**所有全新安装**都在归档阶段被判 `UNTRUSTED_RELEASE_URL` 并中止。本版只补清单，不放宽任何校验。
+
+- **症状**：新机器跑 `install.ps1` / `install.sh`，元数据能取到、版本能确定，下载归档时报 `Release download failed: stage=archive … code=UNTRUSTED_RELEASE_URL. Nothing installed.`——不是超时、不是证书、不是 404。
+- **根因**：附件下载现在两次 302 到 `https://foruda.gitee.com/attach_file/<id>/<file>?token=…`。引导器的 `trustedURL()` 会在跟随跳转后复核最终地址，清单里没有这个域名就判不可信。检查本身是对的，是清单过期。
+- **三处一起补**：`scripts/bootstrap-install.mjs` 的 `hosts`（全新安装主路径）、`lib/update-http.js` 的 `UPDATE_HOSTS`（面板检查/安装更新）、`lib/update-source.js` 的 Gitee `hosts`（发行源探测）。只加域名，仍只许 `https:`、仍拒绝带凭据的 URL、仍只认 443。
+- **校验没有松**：`SHA256SUMS.txt` 仍是强制项，校验失败仍是 `Nothing installed`；不关证书、不改全局代理、不加镜像旁路。
+- **验证**：真实引导器对真实发行源 `bootstrapInstall({dryRun:true})` 从报错变为 `SHA256 verified; dry run, nothing installed.`（`{version:"1.7.15"}`）；另直接下载 tgz + `SHA256SUMS.txt` 跑 `sha256sum -c` 通过，tgz 内 `package.json` 为 1.7.15。
+- 没有新增宿主补丁、没有改锚点、没有动面板代码；已装好的机器不受影响（它们不走引导器）。
+
+[完整说明](docs/releases/1.7.16.md)
+
 # 1.7.15
 
 插件副本被手工覆盖成新版之后，**磁盘上是新的，进程里还是旧的**：DSH 不热加载插件模块，面板里就没有新按钮、新文案——而旧代码更不可能自报「我是旧的」，它连这个能力都是新加的。这个版本把两个事实分开上报：`disk_version` 每次重读 `package.json`（磁盘事实），`running_version` 在模块求值时捕获一次（内存事实）。两者不一致时，面板终于能说清「必须完整退出重开」。

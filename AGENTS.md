@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.15** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.5 同样通过）
+> 当前版本：**1.7.16** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.5 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -132,7 +132,7 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.15 |
+| 插件 | `dsh-purge-community` 1.7.16 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
@@ -506,3 +506,15 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - **排查**：先看 status 的 `disk_version` / `running_version`；不等就完整退出重开（不是关窗口）；重开仍不等，看 `$DSH_HOME/profiles/<profile>/node_modules/dsh-purge-community/package.json`（运行时读这份，不是你的工作目录）。
 - **回归**：`packages/purge-panel` `npm test` 新增两条（不一致时出现提示且含两侧版本号；一致/缺失时不出现）；`test/plugin-lifecycle.test.mjs` 在真实 status handler 响应上断言三个版本键，并断言本进程 `localVersion() === runningVersion() === package.json` 的 `version`。
 - 没有新增宿主补丁、没有改锚点；仍要手动「应用」+ 完整退出重开。
+
+## 1.7.16：全新安装被 Gitee 跳转域名拦住
+
+- **症状**：新机器跑安装器，元数据与版本都正常，下载归档时报 `Release download failed: stage=archive host=gitee.com transport=fetch attempt=1/3 code=UNTRUSTED_RELEASE_URL. Nothing installed.`。不是超时、不是证书、不是 404。
+- **根因**：Gitee 的 release 附件现在两次 302 到 `https://foruda.gitee.com/attach_file/<id>/<file>?token=…`；引导器跟随跳转后用 `trustedURL()` 复核最终地址，白名单里没有这个域名就判不可信。检查是对的，清单过期了。
+- **三处清单必须同步**（少一处就会在对应入口复现）：
+  - `scripts/bootstrap-install.mjs` 的 `hosts`（独立安装器 / 引导安装，全新安装主路径）；
+  - `lib/update-http.js` 的 `UPDATE_HOSTS`（面板检查/安装更新，以及所有走 update-http 的请求）；
+  - `lib/update-source.js` 的 Gitee `hosts`（发行源探测）。
+- **不要做的事**：不要放宽成「任意 https 主机」或按后缀匹配；不要为了跳过下载失败去关证书、跳 SHA256、加镜像旁路。修的是清单，不是校验强度。
+- **验证**：真实引导器对真实发行源跑 `bootstrapInstall({dryRun:true})`，修前在 `stage=archive` 抛 `UNTRUSTED_RELEASE_URL`，修后输出 `SHA256 verified; dry run, nothing installed.`（`{version:"1.7.15"}`）；另下载 tgz + `SHA256SUMS.txt` 跑 `sha256sum -c` 通过。
+- 已装好的机器不走引导器，不受影响；本版没有新增宿主补丁、没有改锚点、没有动面板代码，因此不需要重新构建 bundle（版本号变化除外）。

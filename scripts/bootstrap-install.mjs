@@ -20,7 +20,9 @@ const packageIdentities = new Set([
   `git+https://github.com/${repo}.git`,
   `git+https://github.com/kingcharleslzy-ai/dsh-purge.git`,
 ]);
-const hosts = new Set(["gitee.com", "file.gitee.com", "objects.gitee.com", "api.github.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"]);
+// 2026-11 Gitee 把 release 附件重定向到 foruda.gitee.com；少了这一条，引导器会在
+// archive 阶段报 UNTRUSTED_RELEASE_URL，等于所有全新安装都装不上。
+const hosts = new Set(["gitee.com", "foruda.gitee.com", "file.gitee.com", "objects.gitee.com", "api.github.com", "github.com", "release-assets.githubusercontent.com", "objects.githubusercontent.com"]);
 
 // Keep this module self-contained: the raw installer runs before dependencies exist.
 const transientCodes = new Set(['ECONNRESET', 'ECONNREFUSED', 'ETIMEDOUT', 'ENETUNREACH', 'EHOSTUNREACH', 'EAI_AGAIN', 'ENOTFOUND', 'UND_ERR_CONNECT_TIMEOUT', 'UND_ERR_HEADERS_TIMEOUT', 'UND_ERR_BODY_TIMEOUT', 'UND_ERR_SOCKET', 'UND_ERR_DESTROYED', 'TimeoutError', 'AbortError']);

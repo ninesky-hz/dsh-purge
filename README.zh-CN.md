@@ -6,9 +6,11 @@
 
 给 DeepSeek Harness 的自托管控件（俗称「破甲」插件）· 82 条宿主补丁 · 26 层状态自检 · 左侧栏整页设置
 
-[![Release](https://img.shields.io/badge/release-1.7.15-blue)](https://gitee.com/n-sky/dsh-purge/releases)
+[![Release](https://img.shields.io/badge/release-1.7.16-blue)](https://gitee.com/n-sky/dsh-purge/releases)
 
-当前版本 **1.7.15** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.16** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+
+1.7.16 修的是安装链路上一个会让**所有全新安装失败**的拦截：Gitee 把 release 附件重定向到 `foruda.gitee.com`，而引导器、面板更新器与发行源白名单还停在 `gitee.com` / `file.gitee.com`，归档下载被判 `UNTRUSTED_RELEASE_URL` 后直接中止。三处白名单补上该域名后，`install.ps1` → 引导器 → `releases/latest` → tgz + `SHA256SUMS.txt` 的整条路径重新可用，SHA256 校验与「不关闭 TLS、不跳过摘要」的策略一字未改。[发行说明](docs/releases/1.7.16.md) · [1.7.15 记录](docs/releases/1.7.15.md)。
 
 1.7.15 让面板能指出「磁盘上已经是新版，当前进程还在跑旧代码」：把插件副本从旧版手工覆盖成新版后，运行中的 DSH 不会热加载，面板里自然看不到新按钮、新文案——而旧代码又不可能自报「我旧了」。现在 `/dsh-purge/status` 与 `/dsh-purge/community` 同时上报两个事实：`disk_version`（每次重读 `package.json`）与 `running_version`（模块求值时捕获一次，等于 `plugin_version`）。两者不一致时，「维护 → 本机备份」上方出现一条通知，写明磁盘上是哪版、进程里是哪版，并直说完整退出 DSH（从系统托盘退出）再打开才会加载新代码，刷新浏览器不够。[发行说明](docs/releases/1.7.15.md) · [1.7.14 记录](docs/releases/1.7.14.md)。
 
@@ -156,7 +158,7 @@ powershell -ExecutionPolicy Bypass -File $env:TEMP\purge-install.ps1
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.15 |
+| 插件 | `dsh-purge-community` 1.7.16 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许安装，自检会标「未验证」；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |

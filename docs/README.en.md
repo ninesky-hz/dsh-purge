@@ -6,9 +6,9 @@
 
 A self-hosted add-on for DeepSeek Harness (known in the community as a 破甲 / "jailbreak" plugin) · 82 host patches · 26 status layers
 
-[![Release](https://img.shields.io/badge/release-1.7.15-blue)](https://gitee.com/n-sky/dsh-purge/releases)
+[![Release](https://img.shields.io/badge/release-1.7.16-blue)](https://gitee.com/n-sky/dsh-purge/releases)
 
-Current version 1.7.15 · targets **DSH Desktop 0.2.2-rc.1** (0.2.1-rc.5 also passes)
+Current version 1.7.16 · targets **DSH Desktop 0.2.2-rc.1** (0.2.1-rc.5 also passes)
 
 Bundled knowledge library: 101 pentest skills in `skills/hackskills` — see [Bundled knowledge library](HACKSKILLS.md).
 
@@ -72,7 +72,7 @@ Two separate preferences (check / install), default check-only every six hours. 
 
 ## Compatibility
 
-Plugin `dsh-purge-community` 1.7.15 · verified on DSH Desktop 0.2.2-rc.1 and 0.2.1-rc.1 / rc.2 / rc.3 / rc.5 · Node ≥ 18.
+Plugin `dsh-purge-community` 1.7.16 · verified on DSH Desktop 0.2.2-rc.1 and 0.2.1-rc.1 / rc.2 / rc.3 / rc.5 · Node ≥ 18.
 
 ## Troubleshooting
 
