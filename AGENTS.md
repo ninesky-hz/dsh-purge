@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.14** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.5 同样通过）
+> 当前版本：**1.7.15** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.5 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -132,7 +132,7 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.14 |
+| 插件 | `dsh-purge-community` 1.7.15 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
@@ -496,3 +496,13 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - **验证**：`node --test --import ./test/env-isolate.mjs test/community.test.mjs`（新增五条存储层用例）、`packages/purge-panel` `npm test`（新增「删除要确认」「取消确认不发写请求」）、`npm run check:client`、`npm run check:docs`。
 - **本机基线噪声**：仓库根 `package.json` 的 `repository.url` 已是 Gitee，而 `test/community.test.mjs` 的夹具仍声明旧 GitHub 地址，`validateArchive()` 因此判「安装包身份与发行版本不一致」，6 条安装类用例在**未改动本版代码时**同样失败。修法是同步夹具的 `repository.url`，但那是独立议题，本版没动。
 - 没有新增宿主补丁、没有改锚点；升级后照旧只需手动「应用」+ 完整退出重开一次（备份功能本身不依赖宿主补丁）。
+
+## 1.7.15：运行副本版本诊断
+
+- **两件事**：换副本只改磁盘，加载代码只发生在启动时。`localVersion()` 每次读 `PLUGIN_ROOT/package.json`（磁盘事实）；`runningVersion()` 返回模块求值时捕获一次的 `LOADED_VERSION`（内存事实）。两者不等 = 新副本还没被加载。
+- **接口**：`/dsh-purge/status` 与 `/dsh-purge/community` 的 GET 各新增 `disk_version`（localVersion）与 `running_version`（runningVersion）；`plugin_version` / `version` / `panel_version` 语义不变，别改。
+- **面板**：`CommunityMaintenance` 在「本机备份」小节标题之前渲染一条 `dshpp-notice`，条件是 `disk_version && plugin_version && disk_version !== plugin_version`；文案含两侧真实版本号，并写明「完整退出 DSH（从系统托盘退出）再打开才会加载新代码，刷新浏览器不够」。缺字段或相等时不渲染——别为“保险”改成恒显。
+- **旧代码救不了自己**：这条提示本身就是新代码。旧进程里没有这段判断，所以事故当时面板安静是预期，不能据此判断安装或补丁失败。
+- **排查**：先看 status 的 `disk_version` / `running_version`；不等就完整退出重开（不是关窗口）；重开仍不等，看 `$DSH_HOME/profiles/<profile>/node_modules/dsh-purge-community/package.json`（运行时读这份，不是你的工作目录）。
+- **回归**：`packages/purge-panel` `npm test` 新增两条（不一致时出现提示且含两侧版本号；一致/缺失时不出现）；`test/plugin-lifecycle.test.mjs` 在真实 status handler 响应上断言三个版本键，并断言本进程 `localVersion() === runningVersion() === package.json` 的 `version`。
+- 没有新增宿主补丁、没有改锚点；仍要手动「应用」+ 完整退出重开。

@@ -1,6 +1,6 @@
 // Generated from src/ by npm run build. Do not edit.
 // Derived UI: YuJunZhiXue/dsh-purge (MIT), see LICENSE.
-// panel-version: 1.7.14
+// panel-version: 1.7.15
 window.__ModuleLoader__.load({id:"dsh-purge-panel",factory:(require)=>{
 var module={exports:{}};var exports=module.exports;
 var __create = Object.create;
@@ -10629,6 +10629,11 @@ function CommunityMaintenance() {
       if (mounted.current) setBusy(false);
     }
   }
+  const diskVersion = String(value?.disk_version || "").trim();
+  const runningVersion = String(
+    value?.plugin_version || value?.version || ""
+  ).trim();
+  const staleRuntime = !!(diskVersion && runningVersion && diskVersion !== runningVersion);
   return h(
     "section",
     { className: "dshpp-panel", "aria-label": "\u793E\u533A\u7248\u7EF4\u62A4" },
@@ -10698,6 +10703,11 @@ function CommunityMaintenance() {
         { disabled: busy || !release, onClick: () => run("update") },
         "\u5B89\u88C5\u6240\u9009\u7248\u672C"
       )
+    ) : null,
+    staleRuntime ? h(
+      "p",
+      { className: "dshpp-notice", role: "status" },
+      `\u78C1\u76D8\u4E0A\u5DF2\u662F ${diskVersion}\uFF0C\u5F53\u524D\u8FDB\u7A0B\u8FD8\u5728\u8FD0\u884C ${runningVersion}\uFF1A\u5B8C\u6574\u9000\u51FA DSH\uFF08\u4ECE\u7CFB\u7EDF\u6258\u76D8\u9000\u51FA\uFF09\u518D\u6253\u5F00\u624D\u4F1A\u52A0\u8F7D\u65B0\u4EE3\u7801\uFF0C\u5237\u65B0\u6D4F\u89C8\u5668\u4E0D\u591F\u3002`
     ) : null,
     h(
       "div",

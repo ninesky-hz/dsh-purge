@@ -486,6 +486,18 @@ export function CommunityMaintenance() {
       if (mounted.current) setBusy(false);
     }
   }
+  // 运行副本诊断：磁盘上的 package.json 已经换成新版，但当前进程加载的还是旧代码。
+  // 旧代码无法自报「我旧了」，所以由后端同时报 disk_version（磁盘事实，每次读）
+  // 与 plugin_version（内存事实，模块求值时捕获一次），在这里比对。
+  const diskVersion = String(value?.disk_version || "").trim();
+  const runningVersion = String(
+    value?.plugin_version || value?.version || "",
+  ).trim();
+  const staleRuntime = !!(
+    diskVersion &&
+    runningVersion &&
+    diskVersion !== runningVersion
+  );
   return h(
     "section",
     { className: "dshpp-panel", "aria-label": "社区版维护" },
@@ -558,6 +570,13 @@ export function CommunityMaintenance() {
             { disabled: busy || !release, onClick: () => run("update") },
             "安装所选版本",
           ),
+        )
+      : null,
+    staleRuntime
+      ? h(
+          "p",
+          { className: "dshpp-notice", role: "status" },
+          `磁盘上已是 ${diskVersion}，当前进程还在运行 ${runningVersion}：完整退出 DSH（从系统托盘退出）再打开才会加载新代码，刷新浏览器不够。`,
         )
       : null,
     h(

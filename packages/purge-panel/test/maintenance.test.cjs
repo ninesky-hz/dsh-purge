@@ -476,3 +476,41 @@ test("update status distinguishes loaded code, pending disk version and independ
   );
   await unmount(tree);
 });
+
+test("disk/running mismatch names both versions and tells the user to fully quit", async () => {
+  const h = harness(() =>
+    reply({
+      ok: true,
+      backups: [],
+      disk_version: "1.7.15",
+      plugin_version: "1.7.14",
+      version: "1.7.14",
+    }),
+  );
+  const tree = await mount(h);
+  const rendered = text(tree);
+  assert(rendered.includes("磁盘上已是 1.7.15"));
+  assert(rendered.includes("当前进程还在运行 1.7.14"));
+  assert(rendered.includes("完整退出"));
+  assert(rendered.includes("刷新浏览器不够"));
+  await unmount(tree);
+});
+
+test("matching or missing versions never show the full-quit banner", async () => {
+  let info = { disk_version: "1.7.15", plugin_version: "1.7.15" };
+  const h = harness(() => reply({ ok: true, backups: [], ...info }));
+  let tree = await mount(h);
+  assert(!text(tree).includes("完整退出"));
+  assert(!text(tree).includes("当前进程还在运行"));
+  await unmount(tree);
+
+  info = { disk_version: "", plugin_version: "1.7.15" };
+  tree = await mount(h);
+  assert(!text(tree).includes("完整退出"));
+  await unmount(tree);
+
+  info = {};
+  tree = await mount(h);
+  assert(!text(tree).includes("完整退出"));
+  await unmount(tree);
+});

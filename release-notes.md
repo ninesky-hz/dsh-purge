@@ -1,3 +1,18 @@
+# 1.7.15
+
+插件副本被手工覆盖成新版之后，**磁盘上是新的，进程里还是旧的**：DSH 不热加载插件模块，面板里就没有新按钮、新文案——而旧代码更不可能自报「我是旧的」，它连这个能力都是新加的。这个版本把两个事实分开上报：`disk_version` 每次重读 `package.json`（磁盘事实），`running_version` 在模块求值时捕获一次（内存事实）。两者不一致时，面板终于能说清「必须完整退出重开」。
+
+- **两件事要分开**：换副本改的是磁盘，加载代码发生在进程启动时。`localVersion()` 是每次读盘，`runningVersion()` 返回模块求值时捕获的 `LOADED_VERSION`；两者相等只说明这份进程和磁盘同源，不等就说明新副本还没被加载。
+- **接口**：`/dsh-purge/status` 与 `/dsh-purge/community` 的 GET 各新增 `disk_version`、`running_version`；原有的 `plugin_version`（= `running_version`）与 `panel_version`（`client.js` 头部构建 marker）语义不变，没有改任何既有字段。
+- **面板**：只在 `disk_version` 与 `plugin_version` 都存在且不相等时，在「维护 → 本机备份」上方插入一条 `dshpp-notice`：`磁盘上已是 X，当前进程还在运行 Y：完整退出 DSH（从系统托盘退出）再打开才会加载新代码，刷新浏览器不够。` 两个版本号都取自后端，不写死；一致或任一为空时不渲染，避免误报。
+- **为什么旧代码救不了自己**：提示逻辑本身就是新代码。旧进程跑的是旧模块，既没有这条判断，也不会去读新字段——所以这次事故里面板一片安静，属于预期。要看到提示，得先有一次「已加载新版」的进程。
+- **刷新浏览器不换后端**：界面 bundle 由后端服务，`Cmd/Ctrl+R` 只重新拉前端资源；插件运行时模块、HTTP 路由、宿主补丁都在进程里，换掉它们只能完整退出（从系统托盘退出，不是关窗口）再打开。
+- **排查**：先看 `/dsh-purge/status` 的 `disk_version` / `running_version`。不等 → 完整退出重开；仍不等 → 看 profile 下 `node_modules/dsh-purge-community` 那份安装副本是不是被换成了另一份（运行时读的是它，不是你的工作目录）。
+- **校验**：面板 `npm test` 新增两条（不一致时出现提示且含两侧版本号；一致/缺失时不出现），`test/plugin-lifecycle.test.mjs` 在真实 status handler 响应上断言三个版本字段，并断言本进程 `localVersion() === runningVersion() === package.json` 版本；两份 `client.js` 已重建，`check:client` 字节一致，`check:docs` 输出 1.7.15。
+- 没有新增宿主补丁、没有改锚点；升级后照旧只需手动「应用」+ 完整退出重开一次。
+
+[完整说明](docs/releases/1.7.15.md)
+
 # 1.7.14
 
 本机备份以前只有「建」和「回滚到」两个出口，想清掉一份就只能 `prune` 整片清空或去磁盘上手工 `rm -rf`。这个版本补上单份删除：四个入口（面板按钮、HTTP op、CLI 子命令、`Maintenance.remove()`）都指向同一段逻辑，删的是 `<DSH_HOME>/dsh-purge-community/backups/<id>` 这一份目录，删完顺手回收已无人引用的去重对象。

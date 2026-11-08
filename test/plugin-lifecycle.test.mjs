@@ -5,6 +5,7 @@ import os from "node:os";
 import path from "node:path";
 import { Context, Service } from "@deepseek-ai/cordis";
 import { installCommands, installWebServer } from "../lib/index.js";
+import { localVersion, runningVersion } from "../lib/update.js";
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
 class Commands extends Service {
@@ -41,7 +42,16 @@ test("real Cordis late service, replacement and parent reload retain commands an
     const response = {writeHead(code) {this.code=code;},end(body) {this.body=body;}};
     await routes.get("/dsh-purge/status").handler({method:"GET",headers:{}},response);
     assert.equal(response.code,200);
-    assert.equal(JSON.parse(response.body).ready,true);
+    const status = JSON.parse(response.body);
+    assert.equal(status.ready,true);
+    // 运行副本诊断：磁盘事实（localVersion，每次读）与内存事实（runningVersion，
+    // 模块求值时捕获一次）必须都在响应里，面板才能提示「刚换的副本还没被加载」。
+    const shipped = JSON.parse(fs.readFileSync(new URL("../package.json", import.meta.url), "utf8")).version;
+    assert.equal(runningVersion(),localVersion(),"loaded code and disk copy agree in this process");
+    assert.equal(runningVersion(),shipped,"loaded code matches the shipped package version");
+    assert.equal(status.plugin_version,runningVersion());
+    assert.equal(status.running_version,runningVersion());
+    assert.equal(status.disk_version,localVersion());
     await web.dispose();await tick();assert.equal(routes.size,0);
     web = root.plugin(Web);await web;await tick();
     assert(root.webServer.routes.has("/dsh-purge/status"));

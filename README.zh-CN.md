@@ -6,9 +6,11 @@
 
 给 DeepSeek Harness 的自托管控件（俗称「破甲」插件）· 82 条宿主补丁 · 26 层状态自检 · 左侧栏整页设置
 
-[![Release](https://img.shields.io/badge/release-1.7.14-blue)](https://gitee.com/n-sky/dsh-purge/releases)
+[![Release](https://img.shields.io/badge/release-1.7.15-blue)](https://gitee.com/n-sky/dsh-purge/releases)
 
-当前版本 **1.7.14** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.15** · 适配 **DSH Desktop 0.2.2-rc.1**（0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+
+1.7.15 让面板能指出「磁盘上已经是新版，当前进程还在跑旧代码」：把插件副本从旧版手工覆盖成新版后，运行中的 DSH 不会热加载，面板里自然看不到新按钮、新文案——而旧代码又不可能自报「我旧了」。现在 `/dsh-purge/status` 与 `/dsh-purge/community` 同时上报两个事实：`disk_version`（每次重读 `package.json`）与 `running_version`（模块求值时捕获一次，等于 `plugin_version`）。两者不一致时，「维护 → 本机备份」上方出现一条通知，写明磁盘上是哪版、进程里是哪版，并直说完整退出 DSH（从系统托盘退出）再打开才会加载新代码，刷新浏览器不够。[发行说明](docs/releases/1.7.15.md) · [1.7.14 记录](docs/releases/1.7.14.md)。
 
 1.7.14 让「本机备份」可以单份删除：以前只有 `prune` 一把全清，想腾出某一份快照的空间、或者清掉一次失败安装留下的半截目录（没有 `manifest.json`，面板根本看不见、`rollback` 也不认）都没有出口。现在存储层 `remove(id)`、HTTP `{op:"delete"}`、CLI `purge-community delete <备份ID>`、面板「删除备份」四条入口通向同一段代码：走同一把 `maintenance.lock`，`id` 先过白名单正则，`lstat` 不是真目录就拒、`realpath` 与实际路径不一致就拒（和 `verify()` 同一口径），删除只走 `removeTreeNoFollowSync`——Windows 上 `fs.rmSync(recursive)` 会顺着 junction 删到目标目录外面去。删完顺手 `gcObjects()` 回收去重对象，返回 `freed` 与剩余份数；面板按钮带确认，写明不动已安装插件、当前提示词与规则。本机基线另有 6 条安装类用例因测试夹具的 `repository.url` 仍写旧 GitHub 地址而失败（仓库本体已迁 Gitee），与本版无关。[发行说明](docs/releases/1.7.14.md) · [1.7.13 记录](docs/releases/1.7.13.md)。
 
@@ -154,7 +156,7 @@ powershell -ExecutionPolicy Bypass -File $env:TEMP\purge-install.ps1
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.14 |
+| 插件 | `dsh-purge-community` 1.7.15 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许安装，自检会标「未验证」；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
