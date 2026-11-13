@@ -200,8 +200,10 @@
       config:
         provider: spawn
         toolName: subagent
+        # rc.2 把键名改成 modelSelection；老的 modelSelectionSettings 只有 0.2.1 认。
+        # schemastery 非严格，不认的那个键会被原样保留但不生效，所以两个都写。
         modelSelectionSettings: true
-        backgroundMode: continuable
+        modelSelection: true
         # 子智能体是角色执行者（信息收集/资产梳理/漏洞发现/漏洞利用/内网渗透），**必须是叶子节点**：
         # 由 presets-plugin 将以下旧策略转换为原生子预设；父会话仍有完整工具。
         # 子会话排除 subagent_fork / workflow / ralph；spawn 自身保留，由 maxDepth 限制。
@@ -223,7 +225,6 @@
       config:
         provider: fork
         toolName: subagent_fork
-        backgroundMode: continuable
 
     # Production dsh does not install these optional providers. Install the
     # matching Bundle in this Profile and restart the Host, then copy this
@@ -235,7 +236,6 @@
       config:
         provider: codex
         toolName: subagent_codex
-        backgroundMode: one-shot
         maxDepth: provider-managed
 
     - id: tool-subagent-claude-code
@@ -244,7 +244,6 @@
       config:
         provider: claude-code
         toolName: subagent_claude_code
-        backgroundMode: one-shot
         maxDepth: provider-managed
 
     - id: workflow-ptc

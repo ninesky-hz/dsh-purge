@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.16** · 适配 DSH Desktop **0.2.2-rc.1**（0.2.1-rc.5 同样通过）
+> 当前版本：**1.7.17** · 适配 DSH Desktop **0.2.2-rc.2**（0.2.2-rc.1 与 0.2.1-rc.5 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -132,8 +132,8 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.16 |
-| 已验证宿主 | DSH Desktop 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
+| 插件 | `dsh-purge-community` 1.7.17 |
+| 已验证宿主 | DSH Desktop 0.2.2-rc.2 / 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
 
@@ -518,3 +518,22 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - **不要做的事**：不要放宽成「任意 https 主机」或按后缀匹配；不要为了跳过下载失败去关证书、跳 SHA256、加镜像旁路。修的是清单，不是校验强度。
 - **验证**：真实引导器对真实发行源跑 `bootstrapInstall({dryRun:true})`，修前在 `stage=archive` 抛 `UNTRUSTED_RELEASE_URL`，修后输出 `SHA256 verified; dry run, nothing installed.`（`{version:"1.7.15"}`）；另下载 tgz + `SHA256SUMS.txt` 跑 `sha256sum -c` 通过。
 - 已装好的机器不走引导器，不受影响；本版没有新增宿主补丁、没有改锚点、没有动面板代码，因此不需要重新构建 bundle（版本号变化除外）。
+
+## 1.7.17：适配 DSH Desktop 0.2.2-rc.2
+
+- **宿主基线**：0.2.2-rc.2 把 `@deepseek-ai/*` 一并升到 0.2.2-rc.2（`@deepseek-ai/dsh-desktop-host` 不在 npm 发布，桌面本体只能标 unverified）。本轮基线取自 npm 上 45 个 rc.2 包（各自 `version=0.2.2-rc.2`），放在 `.work/rc2/host/node_modules/@deepseek-ai`。
+- **读数**：修前 `patchDrift`（desktop）drifted **2**（#13 / #35）+ optionalDrift **3**（#56 / #62 / #77），另有一条 #92 半漂移被判定逻辑吞掉；补变体后 **drifted 0 / optionalDrift 0**，missing 只剩 #83（`desktop-shell` 不在 npm 基线里）。副本实打两遍：pass1 `applied 59 / already 8 / missing_file 6 / na 6 / skipped 3`、0 失败、52 个改动 `.js` 全部 `node --check`；pass2 全 `already`、`applied: []`。
+- **#13 / #35（必需）**：rc.2 的 `dsh-sandbox/lib/index.js` 把 `throw new Error(...)` 换成 `throw new SandboxEscalationError(\`...\`, "SANDBOX_ESCALATION_INVALID_ARGUMENT" / "_UNAVAILABLE" / "_REJECTED" / "_CANCELLED")`，`case "cancelled":` 里还多了一行 `approval.signal?.throwIfAborted();` 才 throw。两条补丁按真实字节重写锚点，语义不变（不拦、不问、不拒）。
+- **#62（可选）**：审批询问整体搬进 `dsh-tools/lib/pipeline.js` 的 `serviceAsk()`，deny 体从内联 `{kind:"deny",reason}` 换成 `approvalDenial(reason, CODE)`；`dsh-tools/lib/index.js` 与 `lib/types/index.js` 里 `requires approval` 已经 **0 命中**。新增 6 条变体（`lib/pipeline.js` tab 风格 + `lib/types/pipeline.js` 4 空格/`undefined` 风格，各三条：无审批服务、无 Agent 可路由、通道打不开）。**边界不变**：`rejected` / `cancelled` 仍然 deny。
+- **#92（可选）**：rc.2 的 `publishCordisTree` 改成 `maxBytes: maxStatePayloadBytes(spec.maxSourceFrameBytes)`，上游新增 `STATE_RECORD_OVERHEAD_BYTES = 1024` 与 `maxStatePayloadBytes()` 自己扣预留。新变体**只加注释、不再减 8192** —— 照抄旧算术就是重复扣一次；`DEFAULT_MAX_SOURCE_FRAME_BYTES = 128 * 1024 → 1024 * 1024` 那条保留。
+- **#56 / #77（可选）**：rc.2 把回退可见性逻辑整个移出 `dsh-client-ui-conversation/lib/client.js`（`hidden.add` / `isRewindMarker` / `rewindVisibleEntries` / `rewind` 在该包 89 个 source 里 0 命中）。两条加 `settleWhenAbsent: true` 避免 optionalDrift 误报；#77 只剩压缩写法且依赖不存在的 `isRewindMarker`，**本版暂缓**（补了就是引用未定义函数）。
+- **#30 / #65 收敛**：`#65` 的产物会写回 `merged.decision === "deny"` 形态，正是 `#30` 的 pattern → 每遍应用 `#30` 都 `changed=true`，永远到不了幂等（实测 pass2 仍 `applied:[30,31]`）。现在 `#65` 改写为 `"__dsh_purge_deny_disabled__"` 哨兵 + `else if`，pass1 == pass2。
+- **新增 `patchDrift().partialDrift`**：判定条件原来是 `!hitAny && anchors.length`，部分锚点命中被吞。现在「有命中但没全中」单独进 `partialDrift`（`reason: "partial_anchor_drift"`）；`drifted` / `optionalDrift` 语义不变。以后复核不能只看汇总数字。
+- **预设键名**：rc.2 把 `modelSelectionSettings` 改名 `modelSelection`（`dsh-tool-subagent/lib/index.js:298`）、`backgroundMode` 整个移除（rc.3 / rc.5 也 0 命中）。`presets/unrestricted/agent.cordis.yml` 与 `presets/redteam/agent.cordis.yml` 改为双写 `modelSelectionSettings` + `modelSelection`（老宿主认前者、rc.2 认后者；schemastery 非严格，未知键保留不报错），`backgroundMode` 行全删。
+- **不要误判预设 broken**：`lib/presets-plugin.js:71` 注册前会跑 `migratePresetDefinition()`，把 `toolFilter` 转成子预设 + `agentPreset` 引用，所以 rc.2 `dsh-tool-subagent/lib/index.js:340` 的 `toolFilter is no longer supported` 抛不到。实测 `unrestricted => ok policies:1 defs: unrestricted-child-<hash> + unrestricted`、`redteam => ok policies:0`。
+- `QUALIFIED_HOST_VERSIONS` 增加 `0.2.2-rc.2`；面板/CLI 不再标「未验证」。
+- 回归：`test/patch-anchors.test.mjs` 新增 8 条 rc.2 夹具（逐字节取自解包源码）：`RC2_ESCALATION_GUARDS`(#13)、`RC2_ESCALATION_SWITCH`(#35)、`RC2_PIPELINE_ASK` / `RC2_TYPES_PIPELINE_ASK`(#62)、`RC2_INSPECTOR_SNAPSHOT` + DEFAULT(#92)、`RC2_HOOKS_STEP_AFTER_65`(#30/#65)。`node --test test/patch-anchors.test.mjs` → 32 pass。
+- **指纹**：`test/bypass-contract.test.mjs` 的 #13 / #35 指纹随新变体更新（`eac61898→439a5b6d`、`eab9ef59→47c06344`），语义未变；不动指纹这条闸门就会红。
+- **`npm test`**：`tests 460 / pass 409 / fail 29`。29 条全为 Windows 环境失败（git-bash 的 `tar` 不认 `C:\` 路径 → `community.test.mjs` 27 条 + `update-download` 1 条 + `update-proxy-runtime` 的 CONNECT 1 条），`update-download.test.mjs:34` 那条在 HEAD 原样复现，与本版改动无关。
+- **验证脚本**：`node .work/verify/drift-rc2.mjs <aiBase> desktop`（aiBase 必须是 `.../node_modules/@deepseek-ai` 这一层，传上层会得到 0 目标键、全部误判 missing）、`node .work/verify/apply-rc2.mjs`（复制基线 + 独立 `DSH_HOME`，打两遍验幂等）。
+- 仍需「应用」+ **完整退出重开**：补丁写盘不代表当前进程加载。桌面本体 #82 / #83 / #84 / #91 不在 npm 基线里，真机另跑 `purge-community diagnose`。

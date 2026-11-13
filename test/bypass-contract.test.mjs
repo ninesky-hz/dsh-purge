@@ -15,7 +15,9 @@ const GATE_FINGERPRINTS = {
   10: "1e1197b70cd4bcd9",
   11: "f732bb54043fe3f6",
   12: "e7e94c2c5d5d6e0f",
-  13: "eac61898ab7bddde",
+  // 1.7.17 / 0.2.2-rc.2：宿主把 throw new Error(...) 换成 SandboxEscalationError(code)，
+  // #13 多一条变体（仍是"没有 approver/agent 就没有升级通道 → 直接放行"）。
+  13: "439a5b6d85c9eecb",
   // 1.7.9 / 0.2.2-rc.1：宿主把 displayReason 改成 escalationDisplayReason(...) 调用，
   // 并新增 agent-less 的 throw；#14 因此多一条变体（放行条件不变，仍要求 approver 与 agent 都在）。
   14: "144ca87f8718400b",
@@ -27,7 +29,9 @@ const GATE_FINGERPRINTS = {
   30: "c844cddcc7933514",
   31: "f80165c28dc19a5e",
   34: "1ecd46f5b4067b0f",
-  35: "eab9ef59d3ca00b8",
+  // 1.7.17 / 0.2.2-rc.2：rejected/cancelled 也换成 SandboxEscalationError，cancelled 分支多一行
+  // throwIfAborted()；#35 多一条变体，语义不变（任何非 allowed-once 的结果都按放行处理）。
+  35: "47c06344338cdc05",
   36: "fd8e27dd7b1b21b3",
   59: "fc2fc00d258210b1",
   60: "9e13ac2da676e434",

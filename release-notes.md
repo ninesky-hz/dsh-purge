@@ -1,3 +1,19 @@
+# 1.7.17
+
+DSH Desktop 0.2.2-rc.2 动了三处**审批/错误路径**：沙箱升级的拒绝改成 `SandboxEscalationError` + 错误码、工具审批询问整体搬进 `dsh-tools/lib/pipeline.js` 的 `serviceAsk()`、Inspector 自己扣掉状态帧的 record 包装预留。于是 #13 / #35 / #62 / #92 四条的锚点在 rc.2 上全部失效 —— 不复核就点「应用」，这四条会静默 `skipped`，破甲链路直接漏。本版补变体，**放行边界一字未改**。
+
+- **读数**：rc.2 原始包（45 个 `@deepseek-ai/*` 自证 `version=0.2.2-rc.2`）上 `patchDrift` 从 drifted 2 / optionalDrift 3 收敛到 **drifted 0 / optionalDrift 0**；副本实打两遍：pass1 `applied 59 / already 8 / missing_file 6 / na 6 / skipped 3`、0 失败、52 个改动 `.js` 全部 `node --check` 通过；pass2 全 `already`、`applied: []`。
+- **#13 / #35（必需）**：`dsh-sandbox/lib/index.js` 把 `throw new Error(...)` 换成 `throw new SandboxEscalationError(\`...\`, "SANDBOX_ESCALATION_INVALID_ARGUMENT" / "_UNAVAILABLE" / "_REJECTED" / "_CANCELLED")`，`case "cancelled":` 还插了一行 `approval.signal?.throwIfAborted();` 才 throw。新变体按 rc.2 真实字节重写锚点，语义仍是「不拦、不问、不拒」。
+- **#62（可选）**：审批询问从 `dsh-tools/lib/index.js` 整段搬进 `lib/pipeline.js` 的 `serviceAsk()`，deny 体从内联 `{kind:"deny",reason}` 换成 `approvalDenial(reason, CODE)`。补 6 条变体（`lib/pipeline.js` tab 风格 + `lib/types/pipeline.js` 4 空格风格，各 3 条）：**只放行「没有审批通道 / 没有 Agent 可路由 / 通道打不开」**，`rejected` 与 `cancelled` 仍然 deny —— 用户点了拒绝就是要拒绝，这条边界不放宽。
+- **#92（可选）**：rc.2 的 `publishCordisTree` 已改成 `maxBytes: maxStatePayloadBytes(spec.maxSourceFrameBytes)`，上游自己按 record 扣掉了 `STATE_RECORD_OVERHEAD_BYTES = 1024`。新变体**只加注释、不再减 8192**：照抄旧算术就是重复扣一次，快照预算会白掉 4 KiB。`DEFAULT_MAX_SOURCE_FRAME_BYTES` 抬到 1 MiB 的那条保留。
+- **#56 / #77（可选）**：rc.2 把回退隐藏逻辑整个移出 `dsh-client-ui-conversation/lib/client.js`（`hidden.add` / `isRewindMarker` / `rewindVisibleEntries` 在 89 个 source 里 0 命中）。两条加 `settleWhenAbsent: true`，不再报 optionalDrift；#77 只剩压缩写法且依赖不存在的 `isRewindMarker`，**暂缓**，否则会写出引用未定义的代码。
+- **#30 / #65 不收敛**：`#65` 的产物又写回 `merged.decision === "deny"` 形态，而 `#30` 的 pattern 正是这一行 —— 于是每点一次「应用」`#30` 都 `changed=true`，永远到不了幂等。现在 `#65` 改写为 `"__dsh_purge_deny_disabled__"`哨兵 + `else if`，pass1 == pass2。
+- **新增 `patchDrift().partialDrift`**：#92 这类「一条锚点命中、另一条失效」的补丁以前既不报 drifted 也不报 ok，被 `!hitAny && anchors.length` 吞掉。现在单独进 `partialDrift`（`reason: "partial_anchor_drift"`），复核时能看见。`drifted` / `optionalDrift` 语义不变。
+- **预设**：rc.2 把 `modelSelectionSettings` 改名 `modelSelection`、`backgroundMode` 整个移除。两份预设改为 `modelSelectionSettings` + `modelSelection` 双写（老宿主认前者、rc.2 认后者，schemastery 对未知键是保留而非报错），`backgroundMode` 行全删。`migratePresetDefinition()` 早就把 `toolFilter` 转成子预设，所以 rc.2 那句 `toolFilter is no longer supported` 抛不到，预设不会整份 broken。
+- `QUALIFIED_HOST_VERSIONS` 增加 `0.2.2-rc.2`。`@deepseek-ai/dsh-desktop-host` 不在 npm 发布，桌面本体 #91 在本轮基线里只能标 unverified，真机仍要另跑 `diagnose`。
+- 仍需「应用」+ 完整退出重开：补丁写盘不代表当前进程加载。
+
+[完整说明](docs/releases/1.7.17.md)
 # 1.7.16
 
 Gitee 把 release 附件重定向到 `foruda.gitee.com`，而安装链路上的三处域名白名单还停在 `gitee.com` / `file.gitee.com`，于是**所有全新安装**都在归档阶段被判 `UNTRUSTED_RELEASE_URL` 并中止。本版只补清单，不放宽任何校验。

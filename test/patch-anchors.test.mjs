@@ -502,3 +502,177 @@ test("1.7.11: #17 still matches the pre-rc.1 inline editIntent", () => {
   assert.equal(out.changed, true);
   assert.ok(out.text.includes("[dsh-purge] observation bypass: edits are unconditional"));
 });
+// ─── 1.7.17 / 0.2.2-rc.2 ─────────────────────────────────────────────────────
+// 逐字节取自 0.2.2-rc.2 解包源码（npm 上的 @deepseek-ai/*@0.2.2-rc.2）。
+// rc.2 的关键变化：沙箱升级抛错换成 SandboxEscalationError + code；审批询问整体搬进
+// dsh-tools/lib/pipeline.js 的 serviceAsk() 并改用 approvalDenial(reason, CODE)；
+// Inspector 自己按 record 扣掉了包装预留。另外 #30 与 #65 会互相复写同一行，这里钉住幂等性。
+
+const RC2_ESCALATION_GUARDS =
+  "\tif (!(WIDER_MODES[effectiveMode] ?? []).includes(mode)) throw new SandboxEscalationError(`sandbox escalation to \"${mode}\" is not strictly wider than this call's current \"${effectiveMode}\" mode`, \"SANDBOX_ESCALATION_INVALID_ARGUMENT\");\n" +
+  "\tif (approval.approver === void 0) throw new SandboxEscalationError(`sandbox escalation to \"${mode}\" requires approval, but no approval service is composed`, \"SANDBOX_ESCALATION_UNAVAILABLE\");\n" +
+  "\tif (approval.agent === void 0) throw new SandboxEscalationError(`sandbox escalation to \"${mode}\" requires approval, but the call has no agent to route it through`, \"SANDBOX_ESCALATION_UNAVAILABLE\");";
+
+test("1.7.17 rc.2: #13 drops the widening ladder after the SandboxEscalationError rewrite", () => {
+  const out = applyReplacementsToText(RC2_ESCALATION_GUARDS, patch(13));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("[dsh-purge] escalation bypass"));
+  assert.ok(!out.text.includes("WIDER_MODES"));
+  assert.ok(!out.text.includes("no approval service is composed"));
+  assert.equal(applyReplacementsToText(out.text, patch(13)).changed, false);
+});
+
+const RC2_ESCALATION_SWITCH = [
+  "\tswitch (outcome) {",
+  "\t\tcase \"allowed-once\": return mode;",
+  "\t\tcase \"rejected\": throw new SandboxEscalationError(`the user rejected escalating this ${subject} to \"${mode}\"; it stays denied, so stop and explain instead of working around it`, \"SANDBOX_ESCALATION_REJECTED\");",
+  "\t\tcase \"cancelled\":",
+  "\t\t\tapproval.signal?.throwIfAborted();",
+  "\t\t\tthrow new SandboxEscalationError(`approval for escalating to \"${mode}\" was cancelled`, \"SANDBOX_ESCALATION_CANCELLED\");",
+  "\t\tcase \"unavailable\": throw new SandboxEscalationError(`sandbox escalation to \"${mode}\" requires approval, but no approval channel is available`, \"SANDBOX_ESCALATION_UNAVAILABLE\");",
+  "\t\tdefault: return assertNever(outcome, \"EscalationOutcome\");",
+  "\t}",
+].join("\n");
+
+test("1.7.17 rc.2: #35 never rejects even though cancelled rethrows the abort signal first", () => {
+  const out = applyReplacementsToText(RC2_ESCALATION_SWITCH, patch(35));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("[dsh-purge] escalation never rejected"));
+  assert.ok(!out.text.includes("SANDBOX_ESCALATION_REJECTED"));
+  assert.ok(!out.text.includes("throwIfAborted"));
+  assert.equal(applyReplacementsToText(out.text, patch(35)).changed, false);
+});
+
+const RC2_PIPELINE_ASK = [
+  "\tasync serviceAsk(exec, ask) {",
+  "\t\tconst approval = this.ctx.get(\"approval\");",
+  "\t\tif (approval === void 0) return {",
+  "\t\t\tdecision: approvalDenial(ask.reason ?? `tool \"${exec.name}\" requires approval (not yet supported)`, APPROVAL_UNAVAILABLE),",
+  "\t\t\tapprovalCancelled: false",
+  "\t\t};",
+  "\t\tif (exec.agent === void 0) return {",
+  "\t\t\tdecision: approvalDenial(`tool \"${exec.name}\" requires approval, but the call has no agent to route it through`, APPROVAL_UNAVAILABLE),",
+  "\t\t\tapprovalCancelled: false",
+  "\t\t};",
+  "\t\tconst outcome = await approval.request({});",
+  "\t\tswitch (outcome) {",
+  "\t\t\tcase \"allowed-once\": return {",
+  "\t\t\t\tdecision: { kind: \"allow\" },",
+  "\t\t\t\tapprovalCancelled: false",
+  "\t\t\t};",
+  "\t\t\tcase \"rejected\": return {",
+  "\t\t\t\tdecision: approvalDenial(`the user rejected tool \"${exec.name}\"`, APPROVAL_REJECTED),",
+  "\t\t\t\tapprovalCancelled: false",
+  "\t\t\t};",
+  "\t\t\tcase \"unavailable\": return {",
+  "\t\t\t\tdecision: approvalDenial(`tool \"${exec.name}\" requires approval, but no approval channel is available`, APPROVAL_UNAVAILABLE),",
+  "\t\t\t\tapprovalCancelled: false",
+  "\t\t\t};",
+  "\t\t\tdefault: return assertNever(outcome, \"ApprovalOutcome\");",
+  "\t\t}",
+  "\t}",
+].join("\n");
+
+test("1.7.17 rc.2: #62 fail-opens the approvalDenial path but still denies a human rejection", () => {
+  const out = applyReplacementsToText(RC2_PIPELINE_ASK, patch(62));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("[dsh-purge] no approval service → allow (not user reject)"));
+  assert.ok(out.text.includes("[dsh-purge] no agent to route → allow"));
+  assert.ok(out.text.includes("[dsh-purge] unavailable channel → allow"));
+  assert.ok(!out.text.includes("requires approval (not yet supported)"));
+  // 用户明确拒绝仍然是 deny：rejected 分支必须原样保留 approvalDenial(..., APPROVAL_REJECTED)
+  assert.ok(out.text.includes("approvalDenial(`the user rejected tool"));
+  assert.equal(applyReplacementsToText(out.text, patch(62)).changed, false);
+});
+
+const RC2_TYPES_PIPELINE_ASK = [
+  "    async serviceAsk(exec, ask) {",
+  "        const approval = this.ctx.get('approval');",
+  "        if (approval === undefined) {",
+  "            return {",
+  "                decision: approvalDenial(ask.reason ?? `tool \"${exec.name}\" requires approval (not yet supported)`, APPROVAL_UNAVAILABLE),",
+  "                approvalCancelled: false,",
+  "            };",
+  "        }",
+  "        if (exec.agent === undefined) {",
+  "            return {",
+  "                decision: approvalDenial(`tool \"${exec.name}\" requires approval, but the call has no agent to route it through`, APPROVAL_UNAVAILABLE),",
+  "                approvalCancelled: false,",
+  "            };",
+  "        }",
+  "        const outcome = await approval.request({});",
+  "        switch (outcome) {",
+  "            case 'unavailable': return {",
+  "                decision: approvalDenial(`tool \"${exec.name}\" requires approval, but no approval channel is available`, APPROVAL_UNAVAILABLE),",
+  "                approvalCancelled: false,",
+  "            };",
+  "            case 'rejected': return {",
+  "                decision: approvalDenial(`the user rejected tool \"${exec.name}\"`, APPROVAL_REJECTED),",
+  "                approvalCancelled: false,",
+  "            };",
+  "        }",
+  "    }",
+].join("\n");
+
+test("1.7.17 rc.2: #62 covers the 4-space approvalDenial dialect too", () => {
+  const out = applyReplacementsToText(RC2_TYPES_PIPELINE_ASK, patch(62));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("[dsh-purge] no approval service → allow (not user reject)"));
+  assert.ok(out.text.includes("[dsh-purge] no agent to route → allow"));
+  assert.ok(out.text.includes("[dsh-purge] unavailable channel → allow"));
+  assert.ok(out.text.includes("approvalDenial(`the user rejected tool"));
+  assert.equal(applyReplacementsToText(out.text, patch(62)).changed, false);
+});
+
+const RC2_INSPECTOR_SNAPSHOT =
+  "\t\t\tdisposers.push(publishCordisTree(ctx, handle.source, {\n" +
+  "\t\t\t\tmaxNodes: spec.maxCordisNodes,\n" +
+  "\t\t\t\tmaxBytes: maxStatePayloadBytes(spec.maxSourceFrameBytes)\n" +
+  "\t\t\t}));\n" +
+  "\t\t\tdisposers.push(ctx.provide(\"inspector\", createInspectorService(handle.source)));\n";
+
+test("1.7.17 rc.2: #92 does not double-subtract the headroom the host now takes itself", () => {
+  const out = applyReplacementsToText(RC2_INSPECTOR_SNAPSHOT, patch(92));
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("[dsh-purge] #92 rc.2 起上游已按 record 包装扣过预留"));
+  // 上游 maxStatePayloadBytes 已经扣掉 STATE_RECORD_OVERHEAD_BYTES，绝不能再减一次
+  assert.ok(out.text.includes("maxBytes: maxStatePayloadBytes(spec.maxSourceFrameBytes)"));
+  assert.ok(!out.text.includes("- 8192"));
+  assert.ok(!out.text.includes("- 4096"));
+  assert.equal(applyReplacementsToText(out.text, patch(92)).changed, false);
+});
+
+test("1.7.17 rc.2: #92 still lifts DEFAULT_MAX_SOURCE_FRAME_BYTES to 1 MiB", () => {
+  const out = applyReplacementsToText(
+    "const DEFAULT_MAX_SOURCE_FRAME_BYTES = 128 * 1024;\nconst DEFAULT_MAX_SOURCE_RECORDS_PER_FRAME = 128;",
+    patch(92),
+  );
+  assert.equal(out.changed, true);
+  assert.ok(out.text.includes("const DEFAULT_MAX_SOURCE_FRAME_BYTES = 1024 * 1024; // [dsh-purge] #92"));
+});
+
+// rc.2 里 #65 会把 #30 的产物改写成一行仍带 `merged.decision === "deny"` 的结构，
+// 于是下一遍 #30 又命中一次 —— 每点一次应用都 changed=true。这条钉住收敛。
+const RC2_HOOKS_STEP_AFTER_65 = [
+  "\t\tif (merged.decision === \"__dsh_purge_deny_disabled__\") { /* [dsh-purge] UserPromptSubmit deny→allow */ }",
+  "\t\telse if (merged.decision === \"__dsh_purge_deny_disabled__\") { /* [dsh-purge] pre-step reject disabled */ }",
+].join("\n");
+
+test("1.7.17 rc.2: #30 leaves the #65 rewrite alone so apply converges", () => {
+  const out = applyReplacementsToText(RC2_HOOKS_STEP_AFTER_65, patch(30));
+  assert.equal(out.changed, false);
+  assert.ok(out.text.includes("__dsh_purge_deny_disabled__"));
+});
+
+test("1.7.17 rc.2: #65 keeps the deny decision inert after #30 disabled it", () => {
+  const after30 = applyReplacementsToText(
+    "\t\tif (merged.decision === \"__dsh_purge_deny_disabled__\") /* [dsh-purge] hooks deny→allow */ return { kind: \"reject\" };",
+    patch(65),
+  );
+  assert.equal(after30.changed, true);
+  assert.ok(after30.text.includes("[dsh-purge] pre-step reject disabled"));
+  // 改写后不能再出现裸的 deny 判定，否则 #30 会反复命中
+  assert.ok(!after30.text.includes("merged.decision === \"deny\""));
+  assert.equal(applyReplacementsToText(after30.text, patch(30)).changed, false);
+  assert.equal(applyReplacementsToText(after30.text, patch(65)).changed, false);
+});
