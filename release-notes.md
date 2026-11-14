@@ -1,3 +1,14 @@
+# 1.7.19
+
+这一版只修一条把「应用」整个拦死的问题：密封桌面（`app.asar` 还在）点「应用」会报 `失败: Desktop CLI runtime repair failed; original archive retained.`，补丁其实已经写进 `resources/app/` 了，但请求在最后一步被 500 挡住，面板上什么也看不到。
+
+- **根因**：`repairOfficialCliAfterUnpack()` 要在 `resources/runtime` 下重建官方 `pnpm` 入口（`ensureAppRuntimeLink()` → `runtime-layout.js` 的 `PNPM_ENTRY = "primary-runtime/dependencies/pnpm/bin/pnpm.mjs"`）。刚装完或刚被换过包的宿主里，这个目录可能还是空的，于是返回 `{ok:false, reason:"missing_runtime"}`；而 `lib/index.js` 的 handler 只判 `cliRepair?.ok === false` 就 500，不区分「写盘失败」和「环境还没就位」。
+- **环境事实**：`resources/runtime` 不是安装时随包给的 —— DSH 自己会把用户级运行时接进来：`resources/runtime/primary-runtime` → `$DSH_HOME/dsh-runtimes/dsh-primary-runtime`、`resources/runtime/bin` → 同目录下 `dependencies/node/bin`、`app/runtime` → `resources/runtime`。这些 junction 由宿主启动流程建立，晚于用户点「应用」的话，第一次必然 `missing_runtime`，但此时补丁已经落盘，不需要回滚。
+- **修法**：`lib/core.js` 新增 `cliRepairBlocksApply(cliRepair)`，只对真写盘失败拦（`link_repair_failed` / `rollback_failed` / `runtime_conflict` / `backup_failed`，或没有 `reason` 的异常）；`missing_runtime` / `not_official` / `no_resources` 属于「环境还没就位」，放行，让换包继续。handler（`lib/index.js`）改用它，并在注释里写清这两类的区别。
+- **一处细节**：`reason` 不在顶层，而在 `cliRepair.symlink.reason`（`lib/desktop.js` 把 `ensureAppRuntimeLink()` 的结果整个挂在 `report.symlink` 上）。第一版只看顶层，复测仍然拦；现在两级都看。
+- **回归**：`test/runtime-layout.test.mjs` 新增用例 `apply is not blocked when the official runtime is simply absent`，覆盖 8 种返回值（`null` / `ok:true` / 三个环境类 / 四个写盘类 / 无 `reason`），`node --test test/runtime-layout.test.mjs` 18/18。
+- 仍需「应用」+ 完整退出重开：改的是插件运行时模块，不重启不加载。
+
 # 1.7.18
 
 DSH Desktop 0.2.2-rc.3 是「修一个 Windows 桌面更新 bug + 加一个实验插件」的一版：应用内更新失败、更新后无法自动重开的修复落在安装器 `restart-status.h`（`CreateProcessW` 第 8 个参数从 `nullptr` 换成 `launch->directory`，把 rundll32 状态窗口的工作目录钉到 System32，它就不再锁住安装目录、rename 才能成功），另加实验性 `deepseek-chat-import` 包。**补丁目标文件一个没动**，82 条锚点原样成立 —— 本版只做复核，补丁表一条未改。

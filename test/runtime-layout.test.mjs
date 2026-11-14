@@ -6,6 +6,7 @@ import path from 'node:path';
 import {ensureAppRuntimeLink,repairRuntimeForCli,findPnpmEntry,PNPM_ENTRY} from '../lib/runtime-layout.js';
 import {repairOfficialCliAfterUnpack} from '../lib/desktop.js';
 import {hostFs} from '../lib/extract-asar.js';
+import {cliRepairBlocksApply} from '../lib/core.js';
 
 function fixture() {
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'purge runtime 中文 ')),resources=path.join(root,'resources');
@@ -201,4 +202,21 @@ test('missing new target during canonical verification does not reclassify a liv
   assert.throws(()=>ensureAppRuntimeLink(f.resources),/target disappeared/);
   assert.equal(fs.readlinkSync(f.link),before);
  }finally{hostFs.realpathSync=realpath;fs.rmSync(f.root,{recursive:true,force:true});}
+});
+
+// 一台没有官方 pnpm runtime 的桌面安装（resources/runtime 是空目录）以前会让「应用」
+// 固定返回 500 "Desktop CLI runtime repair failed"，补丁其实已经写进宿主，换包却发不起来。
+// 只有真正写盘失败才该拦；"这台机器没有该组件"不算。
+test('apply is not blocked when the official runtime is simply absent',()=>{
+ assert.equal(cliRepairBlocksApply(null),false);
+ assert.equal(cliRepairBlocksApply({ok:true,created:true}),false);
+ assert.equal(cliRepairBlocksApply({ok:false,reason:'missing_runtime'}),false);
+ assert.equal(cliRepairBlocksApply({ok:false,reason:'not_official'}),false);
+ assert.equal(cliRepairBlocksApply({ok:false,reason:'no_resources'}),false);
+ // 写盘/回滚真的失败时仍然拦。
+ for(const reason of ['link_repair_failed','rollback_failed','runtime_conflict','backup_failed']){
+  assert.equal(cliRepairBlocksApply({ok:false,reason}),true,reason);
+ }
+ // 没有 reason 的异常（例如 repairOfficialCliAfterUnpack 的 catch 分支）也拦。
+ assert.equal(cliRepairBlocksApply({ok:false,error:'boom'}),true);
 });

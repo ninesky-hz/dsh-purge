@@ -6,9 +6,11 @@
 
 给 DeepSeek Harness 的自托管控件（俗称「破甲」插件）· 82 条宿主补丁 · 26 层状态自检 · 左侧栏整页设置
 
-[![Release](https://img.shields.io/badge/release-1.7.18-blue)](https://gitee.com/n-sky/dsh-purge/releases)
+[![Release](https://img.shields.io/badge/release-1.7.19-blue)](https://gitee.com/n-sky/dsh-purge/releases)
 
-当前版本 **1.7.18** · 适配 **DSH Desktop 0.2.2-rc.3**（0.2.2-rc.2 / 0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.19** · 适配 **DSH Desktop 0.2.2-rc.3**（0.2.2-rc.2 / 0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+
+1.7.19 修掉「应用」被 CLI runtime 修复误挡：密封桌面（`app.asar` 还在）点「应用」时，补丁其实已经写进 `resources/app/`，接口却回 500 `失败: Desktop CLI runtime repair failed; original archive retained.`，面板上一个字都看不到。原因是 handler 只判 `cliRepair?.ok === false`，不区分「写盘失败」和「环境还没就绪」——`repairOfficialCliAfterUnpack()` 要求 `resources/runtime/primary-runtime/dependencies/pnpm/bin/pnpm.mjs` 存在，而那个目录不是安装包自带的：宿主启动时才把用户级运行时接进来（`resources/runtime/primary-runtime` → `$DSH_HOME/dsh-runtimes/dsh-primary-runtime`、`resources/runtime/bin` → `…/dependencies/node/bin`、`app/runtime` → `resources/runtime`）。宿主还没跑到那一步时 `resources/runtime` 可能是空目录（本机实测 `count = 0`），于是必然 `missing_runtime`，与补丁写没写进去无关。新增 `cliRepairBlocksApply()`：环境类 reason（`missing_runtime` / `not_official` / `no_resources`）不拦，写盘类（`link_repair_failed` / `rollback_failed` / `runtime_conflict` / `backup_failed`）与没有 reason 的异常仍然拦。有个坑记在这：`desktop.js` 把 `ensureAppRuntimeLink()` 的返回值整个挂在 `report.symlink` 上，真值在 `cliRepair.symlink.reason`，顶层是 `undefined`。回归 `node --test test/runtime-layout.test.mjs` 18/18。[发行说明](docs/releases/1.7.19.md) · [1.7.18 记录](docs/releases/1.7.18.md)。
 
 1.7.18 复核 DSH Desktop 0.2.2-rc.3：这一版改的是两处与补丁目标无关的东西——Windows 桌面版「应用内更新失败、无法自动重开」的修复落在安装器 `restart-status.h`（`CreateProcessW` 的第 8 参不再是 `nullptr`，把 rundll32 状态窗口的工作目录钉到 System32，避免它锁住安装目录导致 rename 失败），以及新增实验性 `deepseek-chat-import` 包。逐字节比对 npm 上 45 个 rc.3 包：与 rc.2 的差异只有 45 个 `package.json` 版本串和 `dsh-api-session-controller/lib/typert.host.js` 里一处声明表新增，后者不是任何补丁的目标；源码级 `apps/desktop/src` 与 `apps/desktop-host/src` 零 diff，`tsconfig` 改动只是为新包加别名与项目引用。rc.3 上重跑诊断仍是 **drifted 0 / optionalDrift 0**，副本实打 pass1 `applied 59 / already 8 / missing_file 6 / na 6 / skipped 3`、40 个改动 `.js` 全部 `node --check` 通过、pass2 全 `already`。本版只把 `0.2.2-rc.3` 加进已验证宿主清单，补丁表一条未改。顺带修掉 `test/community.test.mjs` 的两处夹具问题（生产代码未动）：`setup()` 改用与生产代码同款的 `System32	ar.exe`——Windows 上 PATH 里的 GNU tar 会把 `C:` 当成远端主机，34 条用例有 27 条在 `setup()` 就崩，rc.3 那条白名单用例根本跑不到；夹具的 `repository.url` 改为跟随本清单（默认源迁到 Gitee 之后，写死旧地址会让 6 条用例误报「安装包身份与发行版本不一致」）。改完全量 `npm test` 461 条：pass 436 / fail 3 / skip 22，剩下的 3 条在 pristine HEAD 上同样失败（2 条 update-download 断言写死 GitHub 默认源、1 条真实 CONNECT 隧道）。[发行说明](docs/releases/1.7.18.md) · [1.7.17 记录](docs/releases/1.7.17.md)。
 
@@ -160,7 +162,7 @@ powershell -ExecutionPolicy Bypass -File $env:TEMP\purge-install.ps1
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.18 |
+| 插件 | `dsh-purge-community` 1.7.19 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.3 / 0.2.2-rc.2 / 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许安装，自检会标「未验证」；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |

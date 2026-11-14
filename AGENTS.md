@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.18** · 适配 DSH Desktop **0.2.2-rc.3**（0.2.2-rc.2 / 0.2.2-rc.1 与 0.2.1-rc.5 同样通过）
+> 当前版本：**1.7.19** · 适配 DSH Desktop **0.2.2-rc.3**（0.2.2-rc.2 / 0.2.2-rc.1 与 0.2.1-rc.5 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -132,7 +132,7 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.18 |
+| 插件 | `dsh-purge-community` 1.7.19 |
 | 已验证宿主 | DSH Desktop 0.2.2-rc.3 / 0.2.2-rc.2 / 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
@@ -550,4 +550,13 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - **本机全量读数**：`npm test` 461 条 / pass 436 / fail 3 / skip 22。3 条在 pristine HEAD（`ab6c3e5`，`git worktree add --detach` 干净树）上同样失败：2 条 `update-download` 的断言还写死 GitHub 默认源、1 条真实 CONNECT 隧道 —— 引用“无新增回归”时给这个对照，不要用“跑绿了”一句话带过。
 - **复核脚本须指到 `@deepseek-ai` 这一层**：`run-drift.mjs` / `apply.mjs` 的 `aiBase` 传上层会得到 0 个目标键、全部误判 `missing_file`；`applyPatches` 的 surface 走 `options.surface`，`DSH_HOME` 用 `.work/rc3/home` 隔离，别指向真实 profile。
 - 仍需「应用」+ **完整退出重开**：补丁写盘不代表当前进程加载。
+
+## 1.7.19：「应用」不再被 runtime 修复挡死
+
+- **症状**：密封桌面（`app.asar` 还在）点「应用」，补丁已经写进 `resources/app/`，请求却返回 500 —— `失败: Desktop CLI runtime repair failed; original archive retained.`，面板上什么都看不到。
+- **根因**：`lib/index.js` 的 apply handler 判 `cliRepair?.ok === false` 就 500，不区分「写盘失败」和「依赖还没就位」。而 `repairOfficialCliAfterUnpack()` → `ensureAppRuntimeLink()` → `runtime-layout.js` 要求 `resources/runtime/primary-runtime/dependencies/pnpm/bin/pnpm.mjs` 存在，这个目录**不是安装包自带的**：DSH 启动时才把用户级运行时接进来 —— `resources/runtime/primary-runtime` → `$DSH_HOME/dsh-runtimes/dsh-primary-runtime`、`resources/runtime/bin` → `…/dependencies/node/bin`、`app/runtime` → `resources/runtime`。宿主启动流程跑完之前 `resources/runtime` 可能是空目录（本机实测 `count = 0`），此时点「应用」必然 `{ok:false, reason:"missing_runtime"}`，与补丁写没写进去无关。
+- **修法**：`lib/core.js` 新增 `cliRepairBlocksApply(cliRepair)`，环境类 reason（`missing_runtime` / `not_official` / `no_resources`）不拦，写盘类（`link_repair_failed` / `rollback_failed` / `runtime_conflict` / `backup_failed`）与没有 reason 的异常仍然拦。handler 改用它。
+- **reason 两级都要看**：`desktop.js` 把 `ensureAppRuntimeLink()` 的返回值整个挂到 `report.symlink` 上，所以真值在 `cliRepair.symlink.reason`，顶层是 `undefined`。第一版只看顶层，复测 `blocks apply` 仍为 `true`；改成 `cliRepair.reason || cliRepair.symlink?.reason` 才正确。以后加新的 `ensure*` 检查项，先确认它把结果放在哪一层。
+- **回归**：`test/runtime-layout.test.mjs` 新增 `apply is not blocked when the official runtime is simply absent`，覆盖 `null` / `ok:true` / 三个环境类 / 四个写盘类 / 无 reason 共 8 种输入；`node --test test/runtime-layout.test.mjs` 18/18。
+- 仍需「应用」+ **完整退出重开**：`lib/core.js`、`lib/index.js` 是插件运行时模块，覆盖 profile 副本后不重启不加载。
 
