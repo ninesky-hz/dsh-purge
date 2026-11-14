@@ -14,6 +14,28 @@ import {
 } from "../lib/community.js";
 import { atomicCopyFileSync } from "../lib/core.js";
 import { filterDirs } from "../lib/update-install.js";
+// Windows 的 PATH tar 可能是 Git-Bash 的 GNU tar，它把参数里的 "C:\..." 当成远端主机
+// （tar: Cannot connect to C: resolve failed），整个 setup 就崩了。生产代码
+// （validateArchive / rollback-transaction）用的是宿主自带的 System32\tar.exe，
+// 测试照同一套选法，才是在测真实路径。
+const TAR = () =>
+  process.platform === "win32"
+    ? path.join(process.env.SystemRoot || "C:\\Windows", "System32", "tar.exe")
+    : "tar";
+// 安装包身份校验用 acceptedRepositoryUrls()：本清单声明的仓库 + 当前发行源能产出的地址。
+// 夹具若钉死旧仓库地址，换源（默认 Gitee）或换 checkout 就会整批误报"身份与发行版本不一致"，
+// 所以夹具跟随本清单自己的 repository.url。
+function fixtureRepositoryUrl() {
+  try {
+    const own = JSON.parse(
+      fs.readFileSync(new URL("../package.json", import.meta.url), "utf8"),
+    );
+    if (own?.repository?.url) return String(own.repository.url);
+  } catch {
+    // Fall through to the historical URL.
+  }
+  return "https://github.com/kingcharleslzy-ai/dsh-purge.git";
+}
 function setup() {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), "purge-community-")),
     profile = path.join(home, "profiles/desktop"),
@@ -53,17 +75,13 @@ function setup() {
     JSON.stringify({
       name: PACKAGE,
       version: "1.2.0",
-      repository: { url: "https://github.com/kingcharleslzy-ai/dsh-purge.git" },
+      repository: { url: fixtureRepositoryUrl() },
     }),
   );
   const candidate = path.join(home, "candidate.tgz");
-  execFileSync("tar", [
-    "-czf",
-    candidate,
-    "-C",
-    path.dirname(packRoot),
-    "package",
-  ]);
+  execFileSync(TAR(), ["-czf", candidate, "package"], {
+    cwd: path.dirname(packRoot),
+  });
   const installs = [];
   const manager = new Maintenance({
     home,
@@ -133,6 +151,28 @@ test("0.2.1-rc.5 is a qualified host (1.7.7)", () => {
       );
     const report = compatibility(f.aiBase);
     assert.equal(report.host_version, "0.2.1-rc.5");
+    assert.equal(report.qualified, true);
+    assert.equal(report.level, "qualified");
+    assert.equal(report.patch_writes_allowed, true);
+  } finally {
+    f.close();
+  }
+});
+
+test("0.2.2-rc.3 is a qualified host (1.7.18)", () => {
+  // rc.3 只改了桌面安装器（restart-status.h 的 CreateProcessW 工作目录）
+  // 与实验性 deepseek-chat-import 包，补丁目标文件与 rc.2 逐字节相同；
+  // 但"没漂移"必须有源码级证据，不能因为主机上跑通就放行，所以单独钉一条。
+  assert.ok(QUALIFIED_HOST_VERSIONS.includes("0.2.2-rc.3"));
+  const f = setup();
+  try {
+    for (const pkg of ["dsh-agent-loop", "dsh-system-prompt"])
+      fs.writeFileSync(
+        path.join(f.aiBase, pkg, "package.json"),
+        JSON.stringify({ version: "0.2.2-rc.3" }),
+      );
+    const report = compatibility(f.aiBase);
+    assert.equal(report.host_version, "0.2.2-rc.3");
     assert.equal(report.qualified, true);
     assert.equal(report.level, "qualified");
     assert.equal(report.patch_writes_allowed, true);
@@ -362,7 +402,9 @@ test("repeated rollback stages fresh verified code instead of reusing mutable pa
     const second = f.installs.at(-1);
     assert.notEqual(first, second);
     assert.equal(
-      execFileSync("tar", ["-xOzf", second, "package/client.js"], {encoding:"utf8"}),
+      execFileSync(TAR(), ["-xOzf", second, "package/client.js"], {
+        encoding: "utf8",
+      }),
       "original client",
     );
   } finally {
@@ -446,7 +488,7 @@ test("large files are stored once and restored byte-for-byte", async () => {
     await f.manager.rollback(a.id);
     const staged = f.installs.slice(before).find((p) => p.endsWith(PACKAGE + ".tgz"));
     assert(staged, "rollback staged the plugin");
-    assert(execFileSync("tar", ["-xOzf", staged, "package/client.js"]).equals(big), "bytes restored");
+    assert(execFileSync(TAR(), ["-xOzf", staged, "package/client.js"]).equals(big), "bytes restored");
 
     const usage = f.manager.usage();
     assert(usage.objects > 0);

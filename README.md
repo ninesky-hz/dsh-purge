@@ -6,9 +6,11 @@
 
 给 DeepSeek Harness 的自托管控件（俗称「破甲」插件）· 82 条宿主补丁 · 26 层状态自检 · 左侧栏整页设置
 
-[![Release](https://img.shields.io/badge/release-1.7.17-blue)](https://gitee.com/n-sky/dsh-purge/releases)
+[![Release](https://img.shields.io/badge/release-1.7.18-blue)](https://gitee.com/n-sky/dsh-purge/releases)
 
-当前版本 **1.7.17** · 适配 **DSH Desktop 0.2.2-rc.2**（0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+当前版本 **1.7.18** · 适配 **DSH Desktop 0.2.2-rc.3**（0.2.2-rc.2 / 0.2.1-rc.5 同样通过） · [English](docs/README.en.md)
+
+1.7.18 复核 DSH Desktop 0.2.2-rc.3：这一版改的是两处与补丁目标无关的东西——Windows 桌面版「应用内更新失败、无法自动重开」的修复落在安装器 `restart-status.h`（`CreateProcessW` 的第 8 参不再是 `nullptr`，把 rundll32 状态窗口的工作目录钉到 System32，避免它锁住安装目录导致 rename 失败），以及新增实验性 `deepseek-chat-import` 包。逐字节比对 npm 上 45 个 rc.3 包：与 rc.2 的差异只有 45 个 `package.json` 版本串和 `dsh-api-session-controller/lib/typert.host.js` 里一处声明表新增，后者不是任何补丁的目标；源码级 `apps/desktop/src` 与 `apps/desktop-host/src` 零 diff，`tsconfig` 改动只是为新包加别名与项目引用。rc.3 上重跑诊断仍是 **drifted 0 / optionalDrift 0**，副本实打 pass1 `applied 59 / already 8 / missing_file 6 / na 6 / skipped 3`、40 个改动 `.js` 全部 `node --check` 通过、pass2 全 `already`。本版只把 `0.2.2-rc.3` 加进已验证宿主清单，补丁表一条未改。顺带修掉 `test/community.test.mjs` 的两处夹具问题（生产代码未动）：`setup()` 改用与生产代码同款的 `System32	ar.exe`——Windows 上 PATH 里的 GNU tar 会把 `C:` 当成远端主机，34 条用例有 27 条在 `setup()` 就崩，rc.3 那条白名单用例根本跑不到；夹具的 `repository.url` 改为跟随本清单（默认源迁到 Gitee 之后，写死旧地址会让 6 条用例误报「安装包身份与发行版本不一致」）。改完全量 `npm test` 461 条：pass 436 / fail 3 / skip 22，剩下的 3 条在 pristine HEAD 上同样失败（2 条 update-download 断言写死 GitHub 默认源、1 条真实 CONNECT 隧道）。[发行说明](docs/releases/1.7.18.md) · [1.7.17 记录](docs/releases/1.7.17.md)。
 
 1.7.17 对齐 DSH Desktop 0.2.2-rc.2：上游把沙箱升级的拒绝路径换成 `SandboxEscalationError` + 错误码（`SANDBOX_ESCALATION_INVALID_ARGUMENT` / `_UNAVAILABLE` / `_REJECTED` / `_CANCELLED`），把工具审批询问整体搬进 `dsh-tools/lib/pipeline.js` 的 `serviceAsk()` 并改用 `approvalDenial(reason, CODE)`，还让 Inspector 自己扣掉状态帧的 record 包装预留 —— 于是 #13 / #35 / #62 / #92 的锚点全部失效。本版给四条补上新变体（放行边界一字未改：只放行「没有审批通道」，用户点了拒绝仍然拒绝），rc.2 上重新打出 **drifted 0 / optionalDrift 0**，副本实打 59 条落地、52 个改动 `.js` 全部 `node --check` 通过、二次应用全 `already`。顺带修掉 #30 与 #65 互相复写导致「每点一次应用都 changed」的不收敛，以及 Inspector 快照在半锚点命中时被 `patchDrift` 吞掉的漏报。预设侧 `modelSelectionSettings` 在 rc.2 已改名 `modelSelection`、`backgroundMode` 被移除，两份预设改为双写并删掉失效键。[发行说明](docs/releases/1.7.17.md) · [1.7.16 记录](docs/releases/1.7.16.md)。
 
@@ -158,8 +160,8 @@ powershell -ExecutionPolicy Bypass -File $env:TEMP\purge-install.ps1
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.17 |
-| 已验证宿主 | DSH Desktop 0.2.2-rc.2 / 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
+| 插件 | `dsh-purge-community` 1.7.18 |
+| 已验证宿主 | DSH Desktop 0.2.2-rc.3 / 0.2.2-rc.2 / 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许安装，自检会标「未验证」；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
 

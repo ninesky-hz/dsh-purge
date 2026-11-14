@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.17** · 适配 DSH Desktop **0.2.2-rc.2**（0.2.2-rc.1 与 0.2.1-rc.5 同样通过）
+> 当前版本：**1.7.18** · 适配 DSH Desktop **0.2.2-rc.3**（0.2.2-rc.2 / 0.2.2-rc.1 与 0.2.1-rc.5 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -132,8 +132,8 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.17 |
-| 已验证宿主 | DSH Desktop 0.2.2-rc.2 / 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
+| 插件 | `dsh-purge-community` 1.7.18 |
+| 已验证宿主 | DSH Desktop 0.2.2-rc.3 / 0.2.2-rc.2 / 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
 
@@ -537,3 +537,17 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - **`npm test`**：`tests 460 / pass 409 / fail 29`。29 条全为 Windows 环境失败（git-bash 的 `tar` 不认 `C:\` 路径 → `community.test.mjs` 27 条 + `update-download` 1 条 + `update-proxy-runtime` 的 CONNECT 1 条），`update-download.test.mjs:34` 那条在 HEAD 原样复现，与本版改动无关。
 - **验证脚本**：`node .work/verify/drift-rc2.mjs <aiBase> desktop`（aiBase 必须是 `.../node_modules/@deepseek-ai` 这一层，传上层会得到 0 目标键、全部误判 missing）、`node .work/verify/apply-rc2.mjs`（复制基线 + 独立 `DSH_HOME`，打两遍验幂等）。
 - 仍需「应用」+ **完整退出重开**：补丁写盘不代表当前进程加载。桌面本体 #82 / #83 / #84 / #91 不在 npm 基线里，真机另跑 `purge-community diagnose`。
+## 1.7.18：适配 DSH Desktop 0.2.2-rc.3
+
+- **宿主基线**：0.2.2-rc.3 只改了两处与补丁无关的东西 —— `apps/desktop/installer/restart-status.h`（Windows 应用内更新失败/无法重开的修复：`CreateProcessW` 第 8 参从 `nullptr` 换成 `launch->directory`，把 rundll32 状态窗口的 CWD 钉到 System32，它就不再锁住安装目录导致 rename 失败）与新增实验包 `packages/experimental/deepseek-chat-import`。本轮基线仍是 npm 上 45 个 rc.3 包（各自 `version=0.2.2-rc.3`，`dsh-desktop-host` 不在 npm 发布），放在 `.work/rc3/host/node_modules/@deepseek-ai`，脚本 `.work/rc3/{run-drift,apply}.mjs`。
+- **读数**：`patchDrift` 在 rc.3 上 **drifted 0 / optionalDrift 0**；与 rc.2 基线同脚本复跑 tally 完全一致（partialDrift 32 是既有的「一条补丁多宿主变体、只命中其中一个」噪音，不是回归，报告口径只认 drifted / optionalDrift / missing）。副本实打两遍：pass1 `applied 59 / already 8 / missing_file 6 / na 6 / skipped 3`、0 失败、40 个改动 `.js` 全部 `node --check`；pass2 全 `already`、`applied: []`。
+- **为什么不用补变体**：npm 侧 45 个包与 rc.2 逐字节比对，差异只有 45 个 `package.json` 版本串 + `dsh-api-session-controller/lib/typert.host.js` 的 `RemoteErrorDetailsMap` 声明表多一条 `'deepseekChatImport/owner-only': {}`，而该文件不是任何补丁的目标（目标键是 `lib/index.js`）。源码侧 `apps/desktop/src/**` 与 `apps/desktop-host/src/index.ts` 零 diff，`tsconfig.*.json` 只是给新包加 alias / project reference。**锚点没漂就不要为了"看起来做了适配"去改写补丁** —— 改了反而要重新验证 40 个文件的字节。
+- **桌面四条的边界**：rc.3 的 Release 只有源码包、没有桌面安装包，`app.asar` 字节这一轮拿不到；#82 / #83 / #84 / #91 只能按「构建输入零 diff」报告，真机仍要 `purge-community diagnose`。不要把源码级结论写成「rc.3 asar 已逐条验证」。
+- **预设**：`dsh-web-app/presets/*.patch.yml` 在 npm 差分里没有变化（该包只有 `package.json` 版本串），新插件只进 `official-bundles` 与 `plugin-manager` 的实验清单，不占预设行；`dsh-tool-subagent-control` 的 `list-agents` 剪枝逻辑照旧。
+- `QUALIFIED_HOST_VERSIONS` 增加 `0.2.2-rc.3`，并新增一条 `test/community.test.mjs` 用例（`0.2.2-rc.3 is a qualified host (1.7.18)`）钉住 `qualified` / `patch_writes_allowed`。
+- **夹具的 tar 必须和生产代码同源**：`test/community.test.mjs` 的 `setup()` 原来直接调 PATH 里的 `tar`。Windows 上那多半是 Git-Bash 的 GNU tar，它把 `-C C:\...` 和归档路径里的 `C:` 当成远端主机，报 `tar: Cannot connect to C: resolve failed` —— 34 条用例有 27 条在 `setup()` 就崩，本版新加的 rc.3 白名单用例根本跑不到。现在统一到 `TAR()`：Windows 走 `System32\tar.exe`（与 `lib/community.js:960-961` 的 `validateArchive`、`lib/rollback-transaction.js` 同一套选择），其余平台走 `tar`；三处调用点（一处 `-czf`、两处 `-xOzf`）都换掉了。遇到“测试红一片但都在 setup”先查这条，别去改补丁或夹具内容。
+- **夹具的 `repository.url` 不能写死**：`validateArchive()` 用 `acceptedRepositoryUrls()`，只接受“本清单声明的仓库 + 当前发行源能产出的地址”。默认源迁到 Gitee（`lib/update-source.js:14-15`）之后，写死 `https://github.com/kingcharleslzy-ai/dsh-purge.git` 会让 6 条用到候选包的用例全报 `安装包身份与发行版本不一致`。现在走 `fixtureRepositoryUrl()` 读本清单的 `repository.url`，换 checkout、换源都不误报。
+- **本机全量读数**：`npm test` 461 条 / pass 436 / fail 3 / skip 22。3 条在 pristine HEAD（`ab6c3e5`，`git worktree add --detach` 干净树）上同样失败：2 条 `update-download` 的断言还写死 GitHub 默认源、1 条真实 CONNECT 隧道 —— 引用“无新增回归”时给这个对照，不要用“跑绿了”一句话带过。
+- **复核脚本须指到 `@deepseek-ai` 这一层**：`run-drift.mjs` / `apply.mjs` 的 `aiBase` 传上层会得到 0 个目标键、全部误判 `missing_file`；`applyPatches` 的 surface 走 `options.surface`，`DSH_HOME` 用 `.work/rc3/home` 隔离，别指向真实 profile。
+- 仍需「应用」+ **完整退出重开**：补丁写盘不代表当前进程加载。
+

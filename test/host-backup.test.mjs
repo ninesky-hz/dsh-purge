@@ -17,6 +17,21 @@ test('real backup descriptors close before atomic rename, rollback restores orig
  }finally{if(oldHome===undefined)delete process.env.DSH_HOME;else process.env.DSH_HOME=oldHome;fs.rmSync(root,{recursive:true,force:true});}
 });
 
+test('hostFs.promises exposes every method core uses (stat included)',async()=>{
+ // 回归：core 的文本缓存按 mtime/size 判失效,会调 fsp.stat。
+ // hostFs.promises 少一个方法就是 TypeError,被 patchDrift 吞成 read_error,
+ // 表现为「82 条补丁全部漂移、applied 只剩 10」——2026-11-14 真实踩过。
+ for(const m of ['stat','readFile','writeFile','mkdir','unlink','copyFile','rename'])assert.equal(typeof hostFs.promises[m],'function',`hostFs.promises.${m} missing`);
+ const root=fs.mkdtempSync(path.join(os.tmpdir(),'purge hostfs '));
+ try{
+  const file=path.join(root,'probe.txt');fs.writeFileSync(file,'hello');
+  const st=await hostFs.promises.stat(file);
+  assert.equal(st.size,5);assert.equal(typeof st.mtimeMs,'number');
+  assert.equal(await hostFs.promises.readFile(file,'utf8'),'hello');
+  await assert.rejects(()=>hostFs.promises.stat(path.join(root,'absent')),/ENOENT/);
+ }finally{fs.rmSync(root,{recursive:true,force:true});}
+});
+
 test('read-only Linux host backup fails before patch writes and points to user installation', {skip:process.platform!=='linux'||process.getuid?.()===0}, async()=>{
  const root=fs.mkdtempSync(path.join(os.tmpdir(),'purge readonly '));
  const keys=['DSH_HOME','DSH_BASE','DSH_SURFACE','DSH_PROFILE'];

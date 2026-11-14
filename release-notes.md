@@ -1,3 +1,20 @@
+# 1.7.18
+
+DSH Desktop 0.2.2-rc.3 是「修一个 Windows 桌面更新 bug + 加一个实验插件」的一版：应用内更新失败、更新后无法自动重开的修复落在安装器 `restart-status.h`（`CreateProcessW` 第 8 个参数从 `nullptr` 换成 `launch->directory`，把 rundll32 状态窗口的工作目录钉到 System32，它就不再锁住安装目录、rename 才能成功），另加实验性 `deepseek-chat-import` 包。**补丁目标文件一个没动**，82 条锚点原样成立 —— 本版只做复核，补丁表一条未改。
+
+- **读数**：npm 上 45 个 `@deepseek-ai/*@0.2.2-rc.3`（各自 `version=0.2.2-rc.3`）与 rc.2 逐字节比对，差异只有 45 个 `package.json` 的版本串 + `dsh-api-session-controller/lib/typert.host.js` 里 `RemoteErrorDetailsMap` 声明表新增 `'deepseekChatImport/owner-only': {}`；后者不是任何补丁的目标（该包的目标键是 `lib/index.js`）。`patchDrift` 在 rc.3 上 **drifted 0 / optionalDrift 0**，与 rc.2 基线 tally 完全一致。
+- **桌面侧**：`apps/desktop/src` 与 `apps/desktop-host/src` 在 rc.2→rc.3 零 diff；#82 锚的 import 行（`apps/desktop/src/account-backend.ts:4`）与 #91 锚的两行 control 赋值（`apps/desktop-host/src/index.ts:130-131`）都在原位，`tsconfig.*.json` 的改动只是给新包加 alias 与 project reference、不改变输出形态。rc.3 没有发布桌面安装包，asar 字节这一轮拿不到，桌面四条（#82 / #83 / #84 / #91）仍按源码级证据报告，真机另跑 `purge-community diagnose`。
+- **副本实打两遍**：pass1 `applied 59 / already 8 / missing_file 6 / na 6 / skipped 3`、0 失败、40 个改动 `.js` 全部 `node --check` 通过；pass2 全 `already`、`applied: []`（幂等）。
+- **预设**：rc.3 的 `dsh-web-app/presets/*.patch.yml` 与 rc.2 逐字节相同（npm 差分里该包只有 `package.json` 变化）；新插件只进 `official-bundles` / `plugin-manager` 的实验清单，不占预设行，也不影响 `list-agents` 剪枝逻辑。
+- `QUALIFIED_HOST_VERSIONS` 增加 `0.2.2-rc.3`；面板/CLI 不再把它标「未验证」。
+- **顺带修 `test/community.test.mjs` 两处夹具问题**（生产代码一行未动）：`setup()` 原来用 PATH 里的 `tar` 打包夹具，Windows 上若是 Git-Bash 的 GNU tar，`-C C:\...` 与归档路径里的 `C:` 会被当成远端主机（`tar: Cannot connect to C: resolve failed`），34 条用例有 27 条在 `setup()` 就崩、rc.3 那条白名单用例根本跑不到；现在测试与生产代码（`validateArchive` / `rollback-transaction`）同选 `System32\tar.exe`，三处调用点（一处 `-czf`、两处 `-xOzf`）统一到 `TAR()`。夹具的 `repository.url` 也不再写死旧仓库地址，改为跟随本清单自己的 `repository.url` —— 默认源迁到 Gitee 之后，`validateArchive()` 只接受「本清单声明的仓库 + 当前发行源能产出的地址」，写死旧地址会让 6 条用例误报 `安装包身份与发行版本不一致`。改完这 34 条：33 pass / 1 skip（POSIX 启动器用例在 Windows 跳过），耗时 140 s → 4 s。
+- **全量 `npm test`**：461 条 / pass 436 / fail 3 / skip 22。3 条在 pristine HEAD（`ab6c3e5`，用 `git worktree` 干净树复跑）上同样失败：2 条 `update-download` 的断言仍写死 GitHub 默认源（`lib/update-source.js:14-15` 已是 `DEFAULT_PROVIDER = "gitee"`）、1 条真实 CONNECT 隧道；与本版改动无关。
+- **自检读取性能（本版重点之一）**：面板整页「未定位到宿主 / 读取失败: timeout」的根因不在面板，而在自检本身 —— 一次 `targetFiles` 会把 209 MB 的 `app.asar` 头部重读 **327 遍**（`desktopIdentity` 每次副本都重新解析 JSON header），实测读掉 1769 MB、11 秒；`gatherState` 里它被调三次，叠加 Electron 运行时开销后 `/dsh-purge/status` 要 **47 秒**，而前端超时是 10 秒。两处缓存（键都是 `mtimeMs + size`，宿主文件改写后自然失效）把 `targetFiles` 压到 526 ms、`gatherState` 1.8 s、CLI `selfcheck` 13 s → 1 s，读取量 1769 MB → 6.4 MB。
+- **同一轮的致命回归（已修）**：`loadText()` 用 `await fsp.stat(p)` 判缓存失效，而 `hostFs.promises` 当时只有七个方法、**没有 `stat`** —— 在 Electron 里点「应用」会 `TypeError: fsp.stat is not a function`；在 CLI 里则被 `patchDrift` 的 catch 吞成 `read_error`，82 条补丁全部「读不到」，`applied` 从 82 掉到 10。现在 `loadText` 改用 `hostFs.statSync`（由 `HOST_SYNC` 统一路由，任何版本都在），`hostFs.promises` 也补齐 `stat` 并对全部八个方法加了 `?? nodeFs.promises` 回退，`test/host-backup.test.mjs` 新增断言钉住「stat 必须在」。
+- 仍需「应用」+ 完整退出重开：补丁写盘不代表当前进程加载。
+
+[完整说明](docs/releases/1.7.18.md)
+
 # 1.7.17
 
 DSH Desktop 0.2.2-rc.2 动了三处**审批/错误路径**：沙箱升级的拒绝改成 `SandboxEscalationError` + 错误码、工具审批询问整体搬进 `dsh-tools/lib/pipeline.js` 的 `serviceAsk()`、Inspector 自己扣掉状态帧的 record 包装预留。于是 #13 / #35 / #62 / #92 四条的锚点在 rc.2 上全部失效 —— 不复核就点「应用」，这四条会静默 `skipped`，破甲链路直接漏。本版补变体，**放行边界一字未改**。
