@@ -24,6 +24,12 @@ export function layerKeyOf(layer) {
 export function patchIdRowsOf(state) {
   if (!state || !state.ai_base) return [];
   const statuses = state.patch_status || {};
+  // 本机这版宿主没有可改目标的补丁（后端 patch_settled）：不进分母，也不进明细行。
+  const settled = new Set(
+    (Array.isArray(state.patch_settled) ? state.patch_settled : [])
+      .map(Number)
+      .filter((id) => Number.isFinite(id)),
+  );
   const layerOf = new Map();
   for (const p of Array.isArray(state.patches) ? state.patches : []) {
     const ids = Array.isArray(p.ids) && p.ids.length ? p.ids : [p.id];
@@ -36,7 +42,7 @@ export function patchIdRowsOf(state) {
   for (const [raw, st] of Object.entries(statuses)) {
     const id = Number(raw);
     if (!Number.isFinite(id)) continue;
-    if (!st || st === "na") continue;
+    if (!st || st === "na" || settled.has(id)) continue;
     rows.push({ id, st, layer: layerOf.get(id) || "" });
   }
   if (rows.length) return rows.sort((a, b) => a.id - b.id);
@@ -49,6 +55,7 @@ export function patchIdRowsOf(state) {
         .map(Number)
         .filter((id) => Number.isFinite(id))
         .filter(() => st !== "na")
+        .filter((id) => !settled.has(id))
         .map((id) => ({ id, st, layer: p.layer || "" }));
     })
     .sort((a, b) => a.id - b.id);
@@ -59,6 +66,11 @@ export function patchRowsOf(state) {
   if (!state || !state.ai_base) return [];
   const fromList = Array.isArray(state.patches) ? state.patches : null;
   if (!fromList) return patchIdRowsOf(state);
+  const settled = new Set(
+    (Array.isArray(state.patch_settled) ? state.patch_settled : [])
+      .map(Number)
+      .filter((id) => Number.isFinite(id)),
+  );
   return fromList
     .map((p) => {
       const id = Number(p.id);
@@ -72,7 +84,8 @@ export function patchRowsOf(state) {
         layer: p.layer || "",
       };
     })
-    .filter((r) => r.st && r.st !== "na" && Number.isFinite(r.id));
+    .filter((r) => r.st && r.st !== "na" && Number.isFinite(r.id))
+    .filter((r) => !(Array.isArray(r.ids) ? r.ids : [r.id]).every((id) => settled.has(id)));
 }
 
 export function tallyPatches(rows) {
@@ -105,6 +118,8 @@ export function patchCounters(state) {
   const pending = located ? numOr(state.patches_pending, tally.pending) : 0;
   const na = located ? numOr(state.patches_na, naFallback) : 0;
   const all = located ? numOr(state.patches_total_all, total + na) : 0;
+  // 不适用里的「本机这版没有可改目标」部分：已包含在 na 内，单独给文案用。
+  const settled = located ? numOr(state.patches_settled, 0) : 0;
   return {
     located,
     applied,
@@ -112,6 +127,7 @@ export function patchCounters(state) {
     na,
     all,
     total,
+    settled,
     // 分母只算本机适用的；没应用、也没待应用的都归到「未生效」，不猜具体原因。
     notApplied: Math.max(0, total - applied - pending),
     skipped: tally.skipped,

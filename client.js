@@ -1,6 +1,6 @@
 // Generated from src/ by npm run build. Do not edit.
 // Derived UI: YuJunZhiXue/dsh-purge (MIT), see LICENSE.
-// panel-version: 1.7.19
+// panel-version: 1.7.21
 window.__ModuleLoader__.load({id:"dsh-purge-community",factory:(require)=>{
 var module={exports:{}};var exports=module.exports;
 var __create = Object.create;
@@ -9946,6 +9946,9 @@ function layerKeyOf(layer) {
 function patchIdRowsOf(state) {
   if (!state || !state.ai_base) return [];
   const statuses = state.patch_status || {};
+  const settled = new Set(
+    (Array.isArray(state.patch_settled) ? state.patch_settled : []).map(Number).filter((id) => Number.isFinite(id))
+  );
   const layerOf = /* @__PURE__ */ new Map();
   for (const p of Array.isArray(state.patches) ? state.patches : []) {
     const ids = Array.isArray(p.ids) && p.ids.length ? p.ids : [p.id];
@@ -9958,20 +9961,23 @@ function patchIdRowsOf(state) {
   for (const [raw, st] of Object.entries(statuses)) {
     const id = Number(raw);
     if (!Number.isFinite(id)) continue;
-    if (!st || st === "na") continue;
+    if (!st || st === "na" || settled.has(id)) continue;
     rows.push({ id, st, layer: layerOf.get(id) || "" });
   }
   if (rows.length) return rows.sort((a, b) => a.id - b.id);
   return (Array.isArray(state.patches) ? state.patches : []).flatMap((p) => {
     const ids = Array.isArray(p.ids) && p.ids.length ? p.ids : [p.id];
     const st = p.status || "missing_file";
-    return ids.map(Number).filter((id) => Number.isFinite(id)).filter(() => st !== "na").map((id) => ({ id, st, layer: p.layer || "" }));
+    return ids.map(Number).filter((id) => Number.isFinite(id)).filter(() => st !== "na").filter((id) => !settled.has(id)).map((id) => ({ id, st, layer: p.layer || "" }));
   }).sort((a, b) => a.id - b.id);
 }
 function patchRowsOf(state) {
   if (!state || !state.ai_base) return [];
   const fromList = Array.isArray(state.patches) ? state.patches : null;
   if (!fromList) return patchIdRowsOf(state);
+  const settled = new Set(
+    (Array.isArray(state.patch_settled) ? state.patch_settled : []).map(Number).filter((id) => Number.isFinite(id))
+  );
   return fromList.map((p) => {
     const id = Number(p.id);
     const ids = (Array.isArray(p.ids) && p.ids.length ? p.ids : [p.id]).map(Number).filter((n) => Number.isFinite(n));
@@ -9981,7 +9987,7 @@ function patchRowsOf(state) {
       st: p.status || "missing_file",
       layer: p.layer || ""
     };
-  }).filter((r) => r.st && r.st !== "na" && Number.isFinite(r.id));
+  }).filter((r) => r.st && r.st !== "na" && Number.isFinite(r.id)).filter((r) => !(Array.isArray(r.ids) ? r.ids : [r.id]).every((id) => settled.has(id)));
 }
 function tallyPatches(rows) {
   const out = { applied: 0, pending: 0, unmatched: 0, skipped: 0, total: 0 };
@@ -10005,6 +10011,7 @@ function patchCounters(state) {
   const pending = located ? numOr(state.patches_pending, tally.pending) : 0;
   const na = located ? numOr(state.patches_na, naFallback) : 0;
   const all = located ? numOr(state.patches_total_all, total + na) : 0;
+  const settled = located ? numOr(state.patches_settled, 0) : 0;
   return {
     located,
     applied,
@@ -10012,6 +10019,7 @@ function patchCounters(state) {
     na,
     all,
     total,
+    settled,
     // 分母只算本机适用的；没应用、也没待应用的都归到「未生效」，不猜具体原因。
     notApplied: Math.max(0, total - applied - pending),
     skipped: tally.skipped,
@@ -10025,6 +10033,7 @@ function statusKind(st) {
   if (st === "pending") return "wait";
   if (st === "unmatched") return "bad";
   if (st === "na") return "ok";
+  if (st === "not_needed") return "ok";
   if (st === "missing_file" || st === "skipped" || st === "unlocated" || st === "off")
     return "miss";
   return "bad";
@@ -10038,12 +10047,13 @@ function statusLabel(st, t) {
   if (st === "missing_file") return t("skip");
   if (st === "unlocated") return t("status.unlocated");
   if (st === "na") return t("status.na");
+  if (st === "not_needed") return t("status.na");
   return st || t("unknown");
 }
 function tickKind(st) {
   if (st === "applied" || st === "already") return "ok";
   if (st === "pending") return "wait";
-  if (st === "na" || st === "skipped" || st === "off") return "na";
+  if (st === "na" || st === "skipped" || st === "off" || st === "not_needed") return "na";
   return "bad";
 }
 function idRangeLabel(ids) {
@@ -11887,7 +11897,9 @@ function PurgifySection({ page = "status", onStatus } = {}) {
             ) : null,
             counters.na ? h(
               "li",
-              null,
+              {
+                title: counters.settled ? `\u5176\u4E2D ${counters.settled} \u6761\u672C\u673A\u8FD9\u7248\u5BBF\u4E3B\u6CA1\u6709\u53EF\u6539\u7684\u76EE\u6807\uFF0C\u5DF2\u5F52\u5165\u4E0D\u9002\u7528\uFF0C\u4E0D\u8BA1\u5165\u5206\u6BCD\u3002` : void 0
+              },
               h("i", { className: "is-na" }),
               "\u4E0D\u9002\u7528",
               h("b", null, counters.na)
@@ -11897,7 +11909,7 @@ function PurgifySection({ page = "status", onStatus } = {}) {
           h(
             "p",
             { className: "dshpp-hero-hint" },
-            "\u6539\u8FC7\u5BBF\u4E3B\u3001\u6216\u53D1\u73B0\u6A21\u578B\u53C8\u5F00\u59CB\u63A8\u8131\u65F6\uFF0C\u70B9\u300C\u5E94\u7528\u300D\u628A\u8865\u4E01\u5199\u56DE\u53BB\u3002\u8865\u4E01\u5199\u76D8\u540E\u8981\u5B8C\u6574\u9000\u51FA\u5E76\u91CD\u5F00 DSH \u624D\u4F1A\u52A0\u8F7D\u3002"
+            counters.settled ? `\u672C\u673A\u8FD9\u7248\u5BBF\u4E3B\u6CA1\u6709\u53EF\u6539\u76EE\u6807\u7684 ${counters.settled} \u6761\u8865\u4E01\u5DF2\u5F52\u5165\u300C\u4E0D\u9002\u7528\u300D\uFF0C\u4E0D\u8BA1\u5165\u662F\u5426\u751F\u6548\u7684\u5206\u6BCD\u3002\u6539\u8FC7\u5BBF\u4E3B\u3001\u6216\u53D1\u73B0\u6A21\u578B\u53C8\u5F00\u59CB\u63A8\u8131\u65F6\uFF0C\u70B9\u300C\u5E94\u7528\u300D\u628A\u8865\u4E01\u5199\u56DE\u53BB\u3002\u8865\u4E01\u5199\u76D8\u540E\u8981\u5B8C\u6574\u9000\u51FA\u5E76\u91CD\u5F00 DSH \u624D\u4F1A\u52A0\u8F7D\u3002` : "\u6539\u8FC7\u5BBF\u4E3B\u3001\u6216\u53D1\u73B0\u6A21\u578B\u53C8\u5F00\u59CB\u63A8\u8131\u65F6\uFF0C\u70B9\u300C\u5E94\u7528\u300D\u628A\u8865\u4E01\u5199\u56DE\u53BB\u3002\u8865\u4E01\u5199\u76D8\u540E\u8981\u5B8C\u6574\u9000\u51FA\u5E76\u91CD\u5F00 DSH \u624D\u4F1A\u52A0\u8F7D\u3002"
           ),
           noticeNode(notice)
         ),
@@ -13308,7 +13320,7 @@ function StatusStrip({ info }) {
         h(
           HelpTip,
           { title: "\u5BBF\u4E3B\u8865\u4E01" },
-          `\u4E00\u6761\u8865\u4E01\u7B97\u4E00\u4E2A id\uFF0C\u5206\u6BCD\u53EA\u7B97\u672C\u673A\u9002\u7528\u7684 ${info?.patches_total ?? "?"} \u6761\uFF1B\u5168\u90E8 ${info?.patches_total_all ?? "?"} \u6761\u91CC\u6709 ${info?.patches_na ?? 0} \u6761\u76EE\u6807\u63D2\u4EF6\u6216\u9884\u8BBE\u6CA1\u88C5\u3002\u6CA1\u5BF9\u4E0A\u8868\u793A\u5BBF\u4E3B\u6E90\u7801\u5DF2\u53D8\u3001\u951A\u70B9\u6F02\u79FB\uFF1B\u5F85\u5E94\u7528\u8868\u793A\u951A\u70B9\u8FD8\u5728\u3001\u8FD8\u6CA1\u5199\u5165\u3002`
+          `\u4E00\u6761\u8865\u4E01\u7B97\u4E00\u4E2A id\uFF0C\u5206\u6BCD\u53EA\u7B97\u672C\u673A\u8FD9\u7248\u5BBF\u4E3B\u786E\u5B9E\u6709\u53EF\u6539\u76EE\u6807\u7684 ${info?.patches_total ?? "?"} \u6761\uFF1B\u5168\u90E8 ${info?.patches_total_all ?? "?"} \u6761\u91CC\u6709 ${info?.patches_na ?? 0} \u6761\u4E0D\u9002\u7528${info?.patches_settled ? `\uFF08\u5176\u4E2D ${info.patches_settled} \u6761\u672C\u673A\u6CA1\u6709\u53EF\u6539\u7684\u76EE\u6807\uFF09` : ""}\uFF0C\u4E0D\u8BA1\u5165\u5206\u6BCD\u3002\u6CA1\u5BF9\u4E0A\u8868\u793A\u5BBF\u4E3B\u6E90\u7801\u5DF2\u53D8\u3001\u951A\u70B9\u6F02\u79FB\uFF1B\u5F85\u5E94\u7528\u8868\u793A\u951A\u70B9\u8FD8\u5728\u3001\u8FD8\u6CA1\u5199\u5165\u3002`
         )
       ),
       h(

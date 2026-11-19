@@ -913,7 +913,11 @@ export function PurgifySection({ page = "status", onStatus } = {}) {
             counters.na
               ? h(
                   "li",
-                  null,
+                  {
+                    title: counters.settled
+                      ? `其中 ${counters.settled} 条本机这版宿主没有可改的目标，已归入不适用，不计入分母。`
+                      : undefined,
+                  },
                   h("i", { className: "is-na" }),
                   "不适用",
                   h("b", null, counters.na),
@@ -926,7 +930,9 @@ export function PurgifySection({ page = "status", onStatus } = {}) {
           h(
             "p",
             { className: "dshpp-hero-hint" },
-            "改过宿主、或发现模型又开始推脱时，点「应用」把补丁写回去。补丁写盘后要完整退出并重开 DSH 才会加载。",
+            counters.settled
+              ? `本机这版宿主没有可改目标的 ${counters.settled} 条补丁已归入「不适用」，不计入是否生效的分母。改过宿主、或发现模型又开始推脱时，点「应用」把补丁写回去。补丁写盘后要完整退出并重开 DSH 才会加载。`
+              : "改过宿主、或发现模型又开始推脱时，点「应用」把补丁写回去。补丁写盘后要完整退出并重开 DSH 才会加载。",
           ),
           noticeNode(notice),
         ),

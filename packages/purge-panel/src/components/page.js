@@ -97,7 +97,7 @@ function StatusStrip({ info }) {
         h(
           HelpTip,
           { title: "宿主补丁" },
-          `一条补丁算一个 id，分母只算本机适用的 ${info?.patches_total ?? "?"} 条；全部 ${info?.patches_total_all ?? "?"} 条里有 ${info?.patches_na ?? 0} 条目标插件或预设没装。没对上表示宿主源码已变、锚点漂移；待应用表示锚点还在、还没写入。`,
+          `一条补丁算一个 id，分母只算本机这版宿主确实有可改目标的 ${info?.patches_total ?? "?"} 条；全部 ${info?.patches_total_all ?? "?"} 条里有 ${info?.patches_na ?? 0} 条不适用${info?.patches_settled ? `（其中 ${info.patches_settled} 条本机没有可改的目标）` : ""}，不计入分母。没对上表示宿主源码已变、锚点漂移；待应用表示锚点还在、还没写入。`,
         ),
       ),
       h(

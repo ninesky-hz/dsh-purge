@@ -1,7 +1,7 @@
 # AGENTS.md — 给 AI agent 的 Purge 使用说明书
 
 > 这份文件是写给**在 DSH 里干活的 agent** 的，不是营销文档。
-> 当前版本：**1.7.19** · 适配 DSH Desktop **0.2.2-rc.3**（0.2.2-rc.2 / 0.2.2-rc.1 与 0.2.1-rc.5 同样通过）
+> 当前版本：**1.7.21** · 适配 DSH Desktop **0.2.2-rc.5**（0.2.2-rc.3 / 0.2.2-rc.2 / 0.2.2-rc.1 与 0.2.1-rc.5 同样通过）
 > 版本号由 `npm run check:docs` 与 `package.json` 校验，发版必须同步。
 
 ---
@@ -132,8 +132,8 @@ purge-community probe new
 
 | 组件 | 值 |
 | --- | --- |
-| 插件 | `dsh-purge-community` 1.7.19 |
-| 已验证宿主 | DSH Desktop 0.2.2-rc.3 / 0.2.2-rc.2 / 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
+| 插件 | `dsh-purge-community` 1.7.21 |
+| 已验证宿主 | DSH Desktop 0.2.2-rc.5 / 0.2.2-rc.3 / 0.2.2-rc.2 / 0.2.2-rc.1 / 0.2.1-rc.1 / 0.2.1-rc.2 / 0.2.1-rc.3 / 0.2.1-rc.5 |
 | 其它宿主 | 允许应用，但 `selfcheck` 会标"未验证"；先看 `diagnose` |
 | Node | ≥18（桌面版自带运行时即可） |
 
@@ -560,3 +560,27 @@ Windows Electron 的递归删除可能进入 Junction。清理使用 `removeTree
 - **回归**：`test/runtime-layout.test.mjs` 新增 `apply is not blocked when the official runtime is simply absent`，覆盖 `null` / `ok:true` / 三个环境类 / 四个写盘类 / 无 reason 共 8 种输入；`node --test test/runtime-layout.test.mjs` 18/18。
 - 仍需「应用」+ **完整退出重开**：`lib/core.js`、`lib/index.js` 是插件运行时模块，覆盖 profile 副本后不重启不加载。
 
+## 1.7.20：不适配本机版本的补丁不计入分母
+
+- **症状**：面板 hero 写 `72 / 76 条已生效`，下面挂红字「4 条对不上锚点」，顶部条也是「4 条对不上」。这 4 条是 `#56` / `#77` / `#80` / `#76`。它们在本机（0.2.2-rc.3）确实无事可做，但**不是漂移**：`diagnose` 的 `drifted` 是空数组，真漂移会落在 `pattern_not_found`，而不是 `skipped`。
+- **各自的原因**：`#56 REWIND_HIDE_CUT_ONLY` / `#77 REWIND_DROP_SENT_ON_APPEND` 的目标 `dsh-client-ui-conversation/lib/client.js` 里连 `rewind` 字样都没有了 —— 0.2.2-rc.x 把回退可见性整体搬到服务端 `dsh-session`（`surfaceOp` 26 处、`replacementRange(state, surfaceOp)`）；`#80 MINIMAL_OFFICIAL_TOOLSET` 是撤销型补丁，它要删的 `[dsh-purge] minimal fs/web tool parity` 两行早就被更早的版本清掉了；`#76 PRESET_UNRESTRICTED_IDENTITY_STRIP` 的目标是用户自己的 `unrestricted/agent.cordis.yml`，官方身份句已不在正文里（只剩一行注释提到它）。
+- **口径**：`lib/core.js` 新增 `patchSettledHere(patch, status)` —— `not_needed`、`skipped && patch.settleWhenAbsent`、可选补丁的 `missing_file` 都算「本机已收敛」。再新增 `tallyPatchState(patch_status, { located, surface })`：判定顺序是 `!located` → `na`、`!patchAppliesHere(p, surface)` → `na`、`status === "na"` → `na`（目标插件根本没装，不进 settled）、`patchSettledHere` → `na + settled + settledIds`、其余才进 `total`。`gatherState` 用它的结果产出 `patches_applied / pending / skipped / ready / na / total / settled` 与 `patch_settled`，因此 settled 的补丁既不进 `patches_total` 也不进 `patches_skipped`。
+- **#76 接线**：`gatherState` 现在先过 `refineStatusWithPresetDiagnostic()`，用 `lib/preset-diagnostic.js` 的判据（`/You\s+are\s+a\s+(?:coding\s+agent\s+powered\s+by|helpful\s+software\s+engineer\s+assistant)/i` 是否还留在 prefix 里）把「正文已干净」判成 `not_needed`。此前这条判定只接在 `lib/selfcheck.js`，面板一直看到 `skipped`。该函数用动态 `import()`，保持 §17 的「引导器阶段只依赖随包模块 + Node 内建」。
+- **展示层**：`groupPatchesForDisplay()` 跳过 settled 行；面板 `packages/purge-panel/src/shared/patch-count.js` 用 `state.patch_settled` 过滤明细行，`patchCounters` 新增 `settled`，`notApplied = total - applied - pending` 自然归零；`settings-form.js` 的「不适用」图例加 Tooltip 说明其中几条是本机无目标，hero 提示在 `settled > 0` 时先说这句；`patch-status.js` 把 `not_needed` 渲染成「不适用」而不是「未生效」。
+- **本机实测**（0.2.2-rc.3，`DSH_SURFACE=desktop`；不设该变量时 `targetFiles()` 只解析 61 个键，与运行中的桌面实例对不上）：改前 `72 / 76 applied, na 6, skipped 4`，改后 `72 / 72 applied, na 10, skipped 0, settled 4 → [#56, #76, #77, #80]`，明细行 `63 / 63`。
+- **补丁一条没删**：`#56` / `#77` 在 0.2.1-rc.x 与 0.2.2-rc.1 上仍会 applied（回退宿主版本就恢复作用），`#80` 是从 1.5/1.6 升级上来的机器清 `minimal.patch.yml` 残留行的唯一迁移路径，`#76` 在 `preset install` / `REDTEAM_PRESET_REFRESH=1` 之后仍然需要。
+- **回归**：新增 `test/settled-count.test.mjs` 6 条（`settleWhenAbsent` 三兄弟、`not_needed`、普通 `skipped` 仍算未生效、可选 `missing_file`、rc.3 现场汇总、`located: false` 全归 `na`）；`packages/purge-panel/test/patch-count.test.mjs` 增加 settled fixture 用例（72/72、`notApplied 0`、`na 10`、`settled 4`）。
+- 仍需完整退出重开：改的是插件运行时模块与面板 bundle，不重启不加载。
+
+## 1.7.21：适配 DSH Desktop 0.2.2-rc.5
+
+- **宿主基线**：0.2.2-rc.5（nightly 通道）。GitHub 的 `dsh-v0.2.2-rc.5` tag 只有源码 archive，**没有二进制资产**；桌面版安装包在官方更新源 `https://download.deepseek.com/dsh-desk/bin/win-x64/deepseek-harness-0.2.2-rc.5-win-x64.exe`（299,593,552 B）。判定一律基于这个官方产物，不拿本机已装目录当证据（本机 `resources/app` 早已被补丁改过，比对"没变"会假绿）。
+- **证据链**：下载 exe → `7za x ... "resources\app.asar" -o./asar-pristine`（209,083,008 B）→ `lib/extract-asar.js` 的 `extractAsar(src, '<host>/resources/app')` 解包（20 s，0 个 `dsh-purge` 标记）→ `patchDrift()` + `applyPatches()` 真打两遍。`dest` 必须是 `<host>/resources/app`，否则 `desktopResourcesForHost()` 的正则匹配不上，`#82/#83/#84` 假报不适用。
+- **实测**：`checked 82 / drifted 0 / optionalDrift 0 / missing 0`（chained 3：`#46`←`#45`、`#84`←`#83`、`#88`←`#87`）；首轮 `applied 63 / already 9 / missing_file 7 / skipped 3`，`pattern_not_found` / `error` / `partial` 全 0；汇总 `applied 72 / na 7 / skipped 3`；二轮全 `already`；53 个改动 `.js` 全部 `node --check` 通过。报告 `.work/rc5-022/rc5-apply-report.json`。
+- **na/skipped 解释**：`na 7` = `28/30/31/64/65/71`（未装对应第三方/实验性插件的可选目标）+ `76`（隔离 home 无用户预设文件）；`skipped 3` = `56`/`77`（rewind 可见性已搬到 `dsh-session`）+ `80`（minimal 撤销型补丁）。都不是漂移。
+- **上游真实 delta**：与 pristine 0.2.2-rc.2 比 60 个包内目标文件，`identical 54 / diff 6` —— `dsh-base/cordis.patch.yml`、`dsh-base/package.json`、`dsh-repeat-tool-reminder/lib/index.js`（新增 `CONTENT_REFUSED`）、`dsh-tool-web/lib/index.js`（`runSearchQueries(..., llmProvider, signal)`）、`dsh-llm-deepseek/lib/index.js`（`refusal(details)` → `LlmError(... "CONTENT_REFUSED")`、`stop_reason === "refusal"` 分支）、`dsh-client-ui-conversation/lib/client.js`。改动全落在锚点外。
+- **"不需要新变体"是硬证据不是印象**：把 rc.5 上命中的每条 pattern 拿去 rc.2 复跑（`.work/rc5-022/rc5-anchor-delta.mjs`），95 行**全部命中**，只有 rc.5 才命中的条数是 0。别用"应用没报错"代替这一步。
+- **客户端面**：`dsh-client-runtime` / `dsh-client-ui-slots` 仍不在包内，`arriveGraphRow()` 跳过缺失 inject 行；`slots` / `locale` / `sessions` / `uiWorkspace` / `conversation` 与 4 个 slot 名都在；宿主自己的 `dsh-client-ui-plugin-manager` 就是同一套 `ctx.slots.inject` / `ctx.slots.register` 写法。
+- **#26 钩子不变**：`dsh-llm` 仍是 `ctx.waterfall(\`llm/stream\`, options, () => this.adapterStream(options, prepared))`，与 `lib/index.js` 的 `ctx.on("llm/stream", (options, next) => …)` 对得上，`lib/refusal-retry.js` 不需要改。注意 rc.5 官方自己新增了 `CONTENT_REFUSED` 停止原因，插件那层仍是可选的第二道。
+- **白名单与守卫**：`QUALIFIED_HOST_VERSIONS` 增加 `0.2.2-rc.5`；`test/community.test.mjs` 新增 rc.5 用例，并新增 `every qualified host is documented in AGENTS.md and resolves as qualified` —— 白名单每个版本都要在本节 §9 的「已验证宿主」行露面、且真的判成 `qualified`。加新宿主时，这条守卫会替你把「忘了写文档」变成红灯。
+- 仍需「应用」+ 完整退出重开：补丁写盘不代表进程已加载；从 rc.3 升到 rc.5 后旧补丁全部失效，必须先重新应用。

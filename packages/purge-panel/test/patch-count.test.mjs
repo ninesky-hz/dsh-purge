@@ -100,6 +100,46 @@ test("na 与不适用不进入分母，但出现在「共 N 条」里", () => {
   assert.equal(counters.total + counters.na, counters.all);
 });
 
+// 2026-11-14 / DSH 0.2.2-rc.3：本机没有可改目标的 4 条补丁不再算「对不上锚点」。
+function settledFixture() {
+  const base = fixture();
+  const settled = [56, 76, 77, 80];
+  const patch_status = { ...base.patch_status, 76: "not_needed" };
+  const patches = base.patches.filter(
+    (p) => !(p.ids || [p.id]).some((id) => settled.includes(Number(id))),
+  );
+  return {
+    ...base,
+    patch_status,
+    patches,
+    patch_settled: settled,
+    patches_settled: 4,
+    patches_applied: 72,
+    patches_pending: 0,
+    patches_skipped: 0,
+    patches_na: 10,
+    patches_total: 72,
+    patches_total_all: 82,
+  };
+}
+
+test("本机无目标的补丁不进分母，也不再算作「对不上」", () => {
+  const state = settledFixture();
+  const counters = patchCounters(state);
+  assert.equal(counters.total, 72, "分母只算真有目标可改的补丁");
+  assert.equal(counters.applied, 72);
+  assert.equal(counters.notApplied, 0, "无目标 ≠ 没生效");
+  assert.equal(counters.na, 10, "6 条目标没装 + 4 条本机无目标");
+  assert.equal(counters.settled, 4);
+  assert.equal(counters.all, 82);
+
+  const rows = patchRowsOf(state);
+  assert.equal(rows.length, 63, "展示行也少 4 行");
+  assert.ok(!rows.some((r) => (r.ids || [r.id]).some((id) => [56, 76, 77, 80].includes(id))));
+  assert.equal(patchIdRowsOf(state).length, 72, "id 口径同步到 72");
+  assert.equal(counters.total + counters.na, counters.all);
+});
+
 test("未定位宿主时所有计数归零", () => {
   const counters = patchCounters({ ai_base: "", patch_status: { 1: "applied" } });
   assert.equal(counters.located, false);

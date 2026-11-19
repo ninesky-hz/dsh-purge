@@ -181,6 +181,61 @@ test("0.2.2-rc.3 is a qualified host (1.7.18)", () => {
   }
 });
 
+test("0.2.2-rc.5 is a qualified host (1.7.21)", () => {
+  // rc.5 是 nightly 通道的最新一版。与 rc.2/rc.3 相比，82 条补丁的**目标文件**里只有
+  // 6 个变了字节（dsh-base/cordis.patch.yml、dsh-base/package.json、
+  // dsh-repeat-tool-reminder/lib/index.js、dsh-tool-web/lib/index.js、
+  // dsh-llm-deepseek/lib/index.js、dsh-client-ui-conversation/lib/client.js），
+  // 改动都落在锚点之外：tool-web 加了 llmProvider 参数，llm-deepseek 新增
+  // CONTENT_REFUSED（refusal 停止原因），repeat-tool-reminder 多了该错误码。
+  // 在官方 rc.5 app.asar 的真实源码上跑 patchDrift：checked 82 / drifted 0 /
+  // optionalDrift 0 / missing 0；真打两遍 applied 72 / na 7 / skipped 3，二次全
+  // already，53 个目标 JS node --check 全绿。仍要有源码级证据才放行，所以单独钉一条。
+  assert.ok(QUALIFIED_HOST_VERSIONS.includes("0.2.2-rc.5"));
+  const f = setup();
+  try {
+    for (const pkg of ["dsh-agent-loop", "dsh-system-prompt"])
+      fs.writeFileSync(
+        path.join(f.aiBase, pkg, "package.json"),
+        JSON.stringify({ version: "0.2.2-rc.5" }),
+      );
+    const report = compatibility(f.aiBase);
+    assert.equal(report.host_version, "0.2.2-rc.5");
+    assert.equal(report.qualified, true);
+    assert.equal(report.level, "qualified");
+    assert.equal(report.patch_writes_allowed, true);
+  } finally {
+    f.close();
+  }
+});
+
+test("every qualified host is documented in AGENTS.md and resolves as qualified", () => {
+  // 白名单是「逐条锚点在原始宿主源码上验证过」的承诺，不是「这台机器上跑通了」。
+  // 这条用例把承诺变成可执行检查：每个条目都得在 AGENTS.md §9 的「已验证宿主」
+  // 行里露面，并且真的走 compatibility() 判成 qualified——否则 QUALIFIED_HOST_VERSIONS
+  // 迟早变成一张没人复核的清单。
+  const agents = fs.readFileSync(new URL("../AGENTS.md", import.meta.url), "utf8");
+  const hostLine = agents.split("\n").find((line) => line.startsWith("| 已验证宿主 |")) ?? "";
+  const undocumented = QUALIFIED_HOST_VERSIONS.filter((v) => !hostLine.includes(v));
+  assert.deepEqual(undocumented, [], `AGENTS.md §9 未列出：${undocumented.join(", ")}`);
+  const f = setup();
+  try {
+    for (const version of QUALIFIED_HOST_VERSIONS) {
+      for (const pkg of ["dsh-agent-loop", "dsh-system-prompt"])
+        fs.writeFileSync(
+          path.join(f.aiBase, pkg, "package.json"),
+          JSON.stringify({ version }),
+        );
+      const report = compatibility(f.aiBase);
+      assert.equal(report.host_version, version);
+      assert.equal(report.qualified, true, `${version} 应在白名单里被判成 qualified`);
+      assert.equal(report.level, "qualified", `${version} 的兼容等级应为 qualified`);
+    }
+  } finally {
+    f.close();
+  }
+});
+
 test("no host layout still blocks writes with a clear message", () => {
   const empty = fs.mkdtempSync(path.join(os.tmpdir(), "purge-nohost-"));
   try {

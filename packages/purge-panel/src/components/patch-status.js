@@ -18,6 +18,8 @@ export function statusKind(st) {
   if (st === "pending") return "wait";
   if (st === "unmatched") return "bad";
   if (st === "na") return "ok";
+  // 本机这版宿主没有可改的目标（预设正文已达标）：既不算问题也不是待办。
+  if (st === "not_needed") return "ok";
   if (
     st === "missing_file" ||
     st === "skipped" ||
@@ -37,6 +39,7 @@ export function statusLabel(st, t) {
   if (st === "missing_file") return t("skip");
   if (st === "unlocated") return t("status.unlocated");
   if (st === "na") return t("status.na");
+  if (st === "not_needed") return t("status.na");
   return st || t("unknown");
 }
 
@@ -51,7 +54,8 @@ export function shimKind(v) {
 export function tickKind(st) {
   if (st === "applied" || st === "already") return "ok";
   if (st === "pending") return "wait";
-  if (st === "na" || st === "skipped" || st === "off") return "na";
+  // skipped / off / not_needed：本机没有可改目标，台账里是空心格，不是红格。
+  if (st === "na" || st === "skipped" || st === "off" || st === "not_needed") return "na";
   return "bad";
 }
 

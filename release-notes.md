@@ -1,3 +1,31 @@
+# 1.7.21
+
+这一版只是把 **DSH Desktop 0.2.2-rc.5** 收进已验证宿主清单：82 条补丁的锚点一条没动，一条变体都不用加，没有任何行为变更。
+
+- **怎么验的**：GitHub 的 `dsh-v0.2.2-rc.5` tag 只带源码包，二进制在官方更新源（`download.deepseek.com/dsh-desk/bin/win-x64/deepseek-harness-0.2.2-rc.5-win-x64.exe`，299,593,552 B）。流程是下载 exe → `7za x` 抽出 `resources/app.asar`（209,083,008 B）→ `lib/extract-asar.js` 解包成 `resources/app` 布局 → 用 `patchDrift()` 逐条核对 → `applyPatches()` 真打两遍。
+- **结果**：`checked 82 / drifted 0 / optionalDrift 0 / missing 0`（chained 3：`#46`←`#45`、`#84`←`#83`、`#88`←`#87`）；首轮 `applied 63 / already 9 / missing_file 7 / skipped 3`，`pattern_not_found` / `error` / `partial` 全 0；汇总 `applied 72 / na 7 / skipped 3`；第二轮全 `already`；53 个改动 `.js` 全部 `node --check` 通过。
+- **`na 7` 与 `skipped 3` 都是本机无目标，不是漂移**：`28/30/31/64/65/71` 是没装对应第三方/实验性插件的可选补丁，`76` 是用户预设文件不在这个隔离 home 里；`56`/`77`（rewind 可见性，0.2.2-rc.x 已整体搬到 `dsh-session`）与 `80`（minimal 预设撤销型补丁）沿用 1.7.20 的 `settleWhenAbsent`/`not_needed` 口径。
+- **上游到底改了什么**：与 pristine 0.2.2-rc.2 比对 60 个包内目标文件，`identical 54 / diff 6`。动的 6 个是 `dsh-base/cordis.patch.yml`、`dsh-base/package.json`、`dsh-repeat-tool-reminder/lib/index.js`（新增错误码 `CONTENT_REFUSED`）、`dsh-tool-web/lib/index.js`（`runSearchQueries(ctx, queries, maxResults, llmProvider, signal)` 多一个 `llmProvider`，来自 `exec.agent?.session.requestContext()?.provider`）、`dsh-llm-deepseek/lib/index.js`（新增 `refusal(details)` → `LlmError(... "CONTENT_REFUSED")`，以及 `delta.stop_reason === "refusal"` 分支）、`dsh-client-ui-conversation/lib/client.js`。再把 rc.5 上命中的每条 pattern 拿去 rc.2 复跑，**95 行全部命中，只有 rc.5 才命的条数是 0** —— 这就是"不需要新变体"的硬证据，而不是"看起来没报错"。
+- **客户端面**：`dsh-client-runtime` / `dsh-client-ui-slots` 仍不在包里（`slots` 的代码内联进前端 bundle 的 `seed`），`client-modules` 的 `arriveGraphRow` 对缺失的 `inject` 行直接跳过；面板用到的 `slots` / `locale` / `sessions` / `uiWorkspace` / `conversation` 服务与 4 个 slot 名在 rc.5 都在，宿主自己的 `dsh-client-ui-plugin-manager` 就是同一套 `ctx.slots.inject` / `ctx.slots.register` 写法。
+- **拒绝重试钩子签名没变**：`dsh-llm` 里仍是 `ctx.waterfall(\`llm/stream\`, options, () => this.adapterStream(options, prepared))`，与 `lib/index.js` 的 `ctx.on("llm/stream", (options, next) => …)` 对得上，所以 §26 那层缓冲/重试不需要改。顺带提醒：rc.5 自己就新增了 `CONTENT_REFUSED` 停止原因，官方层也在处理拒答，插件的 `refusalRetry` 仍是可选的第二道。
+- **白名单与守卫**：`QUALIFIED_HOST_VERSIONS` 增加 `0.2.2-rc.5`；`test/community.test.mjs` 新增 `0.2.2-rc.5 is a qualified host (1.7.21)`，另加一条把承诺变成检查的用例 `every qualified host is documented in AGENTS.md and resolves as qualified` —— 白名单里每个版本都必须在 `AGENTS.md` §9 的「已验证宿主」行露面，并且真的被判成 `qualified`，否则白名单迟早变成没人复核的清单。
+- **升级动作照旧**：装 1.7.21 是插件层的事，补丁要在宿主上重新「应用」，然后**完整退出重开**才加载。rc.5 的补丁目标是全新的原始 `app.asar`，所以本机若刚从 rc.3 升上来，必须先「应用」一次（`status` 里看 `asar_still_sealed` 或补丁计数归零就知道还没打）。
+
+---
+
+这一版只改计数口径：本机这版宿主上**没有可改目标**的补丁不再计入分母。面板从「72 / 76 条已生效 + 4 条对不上锚点」变成「72 / 72 条已生效 + 不适用 10」。
+
+- **症状**：hero 显示 `72 / 76 条已生效`，下面一行红字「4 条对不上锚点」；顶部条同样是「4 条对不上」。这 4 条是 `#56` / `#77` / `#80` / `#76`。它们在本机（DSH Desktop 0.2.2-rc.3，已解包）确实无事可做，但**不是漂移**：`diagnose` 的 `drifted` 是空数组，真漂移会落在 `pattern_not_found`，而不是 `skipped`。
+- **逐条原因**：`#56 REWIND_HIDE_CUT_ONLY` / `#77 REWIND_DROP_SENT_ON_APPEND` 的目标 `dsh-client-ui-conversation/lib/client.js` 里连 `rewind` 字样都没有 —— 0.2.2-rc.x 把回退可见性整体搬到服务端 `dsh-session`（`surfaceOp` 26 处、`replacementRange(state, surfaceOp)`）；`#80 MINIMAL_OFFICIAL_TOOLSET` 是撤销型补丁，它要删的 `[dsh-purge] minimal fs tool parity` / `minimal web tool parity` 两行早被更早的版本清掉了；`#76 PRESET_UNRESTRICTED_IDENTITY_STRIP` 的目标是用户自己的 `unrestricted/agent.cordis.yml`，官方身份句已不在正文里（只剩一行注释提到它）。
+- **口径**：`lib/core.js` 新增 `patchSettledHere(patch, status)` —— `not_needed`、`skipped && patch.settleWhenAbsent`、可选补丁的 `missing_file` 都算「本机已收敛」。再新增 `tallyPatchState(patch_status, { located, surface })`：判定顺序是 `!located` → `na`、`!patchAppliesHere(p, surface)` → `na`、`status === "na"` → `na`（目标插件根本没装，不算 settled）、`patchSettledHere` → `na + settled + settledIds`、其余才进 `total`。`gatherState` 用这个结果产出 `patches_applied / pending / skipped / ready / na / total / settled` 与 `patch_settled`，settled 的补丁既不进 `patches_total`，也不进 `patches_skipped`。
+- **#76 接线**：`gatherState` 现在先过 `refineStatusWithPresetDiagnostic()`，用 `lib/preset-diagnostic.js` 的判据（`/You\s+are\s+a\s+(?:coding\s+agent\s+powered\s+by|helpful\s+software\s+engineer\s+assistant)/i` 是否还留在 prefix 里）把「正文已干净」判成 `not_needed`。此前这条判定只接在 `lib/selfcheck.js`，面板一直看到 `skipped`。该 helper 用动态 `import()` 加载，保持 §17 的「引导器阶段只依赖随包模块 + Node 内建」。
+- **展示层**：`groupPatchesForDisplay()` 跳过 settled 行；面板 `packages/purge-panel/src/shared/patch-count.js` 用 `state.patch_settled` 过滤明细行，`patchCounters` 新增 `settled`，`notApplied = total - applied - pending` 自然归零；`settings-form.js` 的「不适用」图例加 Tooltip 说明其中几条是本机无目标，hero 提示在 `settled > 0` 时先说明这句；`patch-status.js` 把 `not_needed` 渲染成「不适用」而不是「未生效」。
+- **本机实测**（`DSH_SURFACE=desktop`；不设该变量时 `targetFiles()` 只解析 61 个键，与运行中的桌面实例对不上）：改前 `72 / 76 applied, na 6, skipped 4`，改后 `72 / 72 applied, na 10, skipped 0, settled 4 → [#56, #76, #77, #80]`，明细行 `63 / 63`。
+- **补丁一条没删**：`#56` / `#77` 在 0.2.1-rc.x 与 0.2.2-rc.1 上仍会 applied（回退宿主版本就恢复作用），`#80` 是从 1.5/1.6 升级上来的机器清 `minimal.patch.yml` 残留行的唯一迁移路径，`#76` 在 `preset install` / `REDTEAM_PRESET_REFRESH=1` 之后仍然需要。
+- **接口**：`/dsh-purge/status` 新增 `patches_settled`（数字）与 `patch_settled`（id 数组）；文本版 `status` 报表在 `n/a` 后面补一句 `(N with no target on this host)`。
+- **回归**：新增 `test/settled-count.test.mjs` 6 条（`settleWhenAbsent` 三兄弟、`not_needed`、普通 `skipped` 仍算未生效、可选 `missing_file`、rc.3 现场汇总、`located: false` 全归 `na`）；`packages/purge-panel/test/patch-count.test.mjs` 增加 settled fixture 用例（`72/72`、`notApplied 0`、`na 10`、`settled 4`）。
+- 仍需完整退出重开：改的是插件运行时模块与面板 bundle，不重启不加载。
+
 # 1.7.19
 
 这一版只修一条把「应用」整个拦死的问题：密封桌面（`app.asar` 还在）点「应用」会报 `失败: Desktop CLI runtime repair failed; original archive retained.`，补丁其实已经写进 `resources/app/` 了，但请求在最后一步被 500 挡住，面板上什么也看不到。
